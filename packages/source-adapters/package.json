@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@kalshi-quant-dashboard/config": "workspace:*",
-    "@kalshi-quant-dashboard/contracts": "workspace:*"
+    "@kalshi-quant-dashboard/contracts": "workspace:*",
+    "zod": "^3.24.2"
   },
   "scripts": {
     "build": "tsx ../../scripts/clean-dist.ts && tsc -p tsconfig.json",
