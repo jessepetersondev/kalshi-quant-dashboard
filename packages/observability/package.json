@@ -1,0 +1,22 @@
+{
+  "name": "@kalshi-quant-dashboard/observability",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/observability/src/index.d.ts",
+      "import": "./dist/observability/src/index.js"
+    }
+  },
+  "dependencies": {
+    "@kalshi-quant-dashboard/config": "workspace:*",
+    "pino": "^9.6.0"
+  },
+  "scripts": {
+    "build": "tsx ../../scripts/clean-dist.ts && tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "strategyId": "btc",
+  "marketTicker": "KXBTCD-PARTIAL-FILL",
+  "position": {
+    "side": "yes",
+    "contracts": 3,
+    "averageEntryPrice": 0.4,
+    "lastMarkedPrice": 0.55,
+    "feesPaid": 0.02,
+    "status": "open",
+    "occurredAt": "2026-04-11T12:00:00Z",
+    "metadata": {}
+  },
+  "trades": [
+    {
+      "tradeId": "trade-partial-fill-1",
+      "correlationId": "corr-btc-partial-fill",
+      "status": "partially_filled",
+      "quantity": 3,
+      "occurredAt": "2026-04-11T12:00:00Z",
+      "metadata": {
+        "realized_pnl": 0.1,
+        "feeAmount": 0.03,
+        "partialFill": true
+      }
+    }
+  ],
+  "directSnapshotTotalPnl": 0.5
+}

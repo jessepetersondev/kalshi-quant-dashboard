@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "baseUrl": ".",
+    "paths": {
+      "@kalshi-quant-dashboard/auth": ["packages/auth/src/index.ts"],
+      "@kalshi-quant-dashboard/config": ["packages/config/src/index.ts"],
+      "@kalshi-quant-dashboard/contracts": ["packages/contracts/src/index.ts"],
+      "@kalshi-quant-dashboard/db": ["packages/db/src/index.ts"],
+      "@kalshi-quant-dashboard/observability": ["packages/observability/src/index.ts"],
+      "@kalshi-quant-dashboard/source-adapters": ["packages/source-adapters/src/index.ts"],
+      "@kalshi-quant-dashboard/testing": ["packages/testing/src/index.ts"],
+      "@kalshi-quant-dashboard/ui": ["packages/ui/src/index.ts"]
+    }
+  }
+}

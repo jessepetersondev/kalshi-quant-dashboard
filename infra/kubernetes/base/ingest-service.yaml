@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kqd-ingest
+spec:
+  selector:
+    app: kqd-ingest
+  ports:
+    - name: http
+      port: 3002
+      targetPort: http

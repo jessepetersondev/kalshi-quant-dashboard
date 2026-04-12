@@ -1,0 +1,30 @@
+{
+  "strategyId": "xrp",
+  "marketTicker": "KXXRPD-STALE",
+  "position": {
+    "side": "yes",
+    "contracts": 4,
+    "averageEntryPrice": 0.22,
+    "lastMarkedPrice": 0.24,
+    "feesPaid": 0.01,
+    "status": "open",
+    "occurredAt": "2026-04-11T08:00:00Z",
+    "metadata": {
+      "stale": true
+    }
+  },
+  "trades": [
+    {
+      "tradeId": "trade-stale-1",
+      "correlationId": "corr-xrp-stale",
+      "status": "accepted",
+      "quantity": 4,
+      "occurredAt": "2026-04-11T08:00:00Z",
+      "metadata": {
+        "realized_pnl": 0,
+        "feeAmount": 0.01
+      }
+    }
+  ],
+  "directSnapshotTotalPnl": 0.06
+}

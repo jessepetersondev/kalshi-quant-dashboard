@@ -1,0 +1,22 @@
+{
+  "externalOrderId": "external-order-1",
+  "clientOrderId": "client-order-1",
+  "resourceId": "publisher-order-1",
+  "correlationId": "corr-btc-1",
+  "commandEventId": "command-event-1",
+  "actionType": "buy",
+  "tradeIntentId": "trade-intent-1",
+  "publisherOrderId": "publisher-order-1",
+  "ticker": "KXBTCD-TEST",
+  "side": "yes",
+  "action": "buy",
+  "targetPublisherOrderId": null,
+  "targetClientOrderId": null,
+  "targetExternalOrderId": null,
+  "status": "accepted",
+  "quantity": 2,
+  "limitPriceDollars": 0.42,
+  "notionalDollars": 0.84,
+  "rawResponse": "{\"ok\":true}",
+  "recordedAtUtc": "2026-04-11T12:00:03Z"
+}

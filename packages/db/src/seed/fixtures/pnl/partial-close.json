@@ -1,0 +1,29 @@
+{
+  "strategyId": "eth",
+  "marketTicker": "KXETHD-PARTIAL-CLOSE",
+  "position": {
+    "side": "no",
+    "contracts": 1,
+    "averageEntryPrice": 0.48,
+    "lastMarkedPrice": 0.32,
+    "feesPaid": 0.01,
+    "status": "partially_closed",
+    "occurredAt": "2026-04-11T12:02:00Z",
+    "metadata": {}
+  },
+  "trades": [
+    {
+      "tradeId": "trade-partial-close-1",
+      "correlationId": "corr-eth-partial-close",
+      "status": "partially_closed",
+      "quantity": 2,
+      "occurredAt": "2026-04-11T12:02:00Z",
+      "metadata": {
+        "realized_pnl": 0.18,
+        "feeAmount": 0.02,
+        "partialClose": true
+      }
+    }
+  ],
+  "directSnapshotTotalPnl": 0.31
+}

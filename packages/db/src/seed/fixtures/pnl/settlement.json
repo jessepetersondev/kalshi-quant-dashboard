@@ -1,0 +1,28 @@
+{
+  "strategyId": "sol",
+  "marketTicker": "KXSOLD-SETTLED",
+  "position": {
+    "side": "yes",
+    "contracts": 0,
+    "averageEntryPrice": 0.51,
+    "lastMarkedPrice": 0.51,
+    "feesPaid": 0,
+    "status": "settled",
+    "occurredAt": "2026-04-11T12:04:00Z",
+    "metadata": {}
+  },
+  "trades": [
+    {
+      "tradeId": "trade-settlement-1",
+      "correlationId": "corr-sol-settlement",
+      "status": "settled",
+      "quantity": 2,
+      "occurredAt": "2026-04-11T12:04:00Z",
+      "metadata": {
+        "realized_pnl": 0.6,
+        "feeAmount": 0.04
+      }
+    }
+  ],
+  "directSnapshotTotalPnl": 0.56
+}

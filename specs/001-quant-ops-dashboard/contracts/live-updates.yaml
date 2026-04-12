@@ -1,0 +1,298 @@
+transport: sse
+endpoint: /api/live/stream
+authentication:
+  mode: session_cookie
+  capability_source:
+    session_contract: ./rest-api.openapi.yaml#/components/schemas/EffectiveCapabilityResolution
+    rule: stream authorization is derived from the same effective capability result used by REST and exports
+  rbac:
+    operator:
+      channels:
+        - overview
+        - decisions
+        - trades
+        - skips
+        - pnl
+        - operations
+        - alerts
+      detail_levels:
+        - standard
+    developer:
+      channels:
+        - overview
+        - decisions
+        - trades
+        - skips
+        - pnl
+        - operations
+        - alerts
+      detail_levels:
+        - standard
+        - debug
+    admin:
+      channels:
+        - overview
+        - decisions
+        - trades
+        - skips
+        - pnl
+        - operations
+        - alerts
+      detail_levels:
+        - standard
+        - debug
+resume:
+  request_header: Last-Event-ID
+  cursor_field: projectionChangeId
+  behavior:
+    - server replays buffered projection changes after the provided cursor when available
+    - replay order is ascending projection change id, not raw broker delivery order
+    - if the cursor is too old or no longer retained, server emits `stream.resync_required`
+    - client must refetch affected REST queries and reopen the stream using the same route state
+query_parameters:
+  channels:
+    type: csv
+    allowed:
+      - overview
+      - decisions
+      - trades
+      - skips
+      - pnl
+      - operations
+      - alerts
+  strategy:
+    type: csv
+    description: Optional strategy scope filter
+  timezone:
+    type: string
+    allowed:
+      - utc
+      - local
+  compare:
+    type: csv
+    description: Optional compare-mode strategy selection
+  detailLevel:
+    type: string
+    allowed:
+      - standard
+      - debug
+    default: standard
+    description: Debug level is denied for operator sessions.
+event_envelope:
+  type: object
+  required:
+    - projectionChangeId
+    - channel
+    - kind
+    - detailLevel
+    - emittedAt
+    - payload
+  properties:
+    projectionChangeId:
+      type: integer
+      description: Monotonic durable projection cursor used for resume.
+    channel:
+      type: string
+    kind:
+      type: string
+      enum:
+        - snapshot
+        - upsert
+        - status
+        - gap
+        - resync_required
+    detailLevel:
+      type: string
+      enum:
+        - standard
+        - debug
+    emittedAt:
+      type: string
+      format: date-time
+    effectiveOccurredAt:
+      type: string
+      format: date-time
+      nullable: true
+    payload:
+      type: object
+events:
+  - name: overview.snapshot
+    channel: overview
+    kind: snapshot
+    payload:
+      required:
+        - generatedAt
+        - healthSummary
+        - aggregatePnl
+        - liveDecisionFeed
+        - liveTradeFeed
+        - recentAlerts
+  - name: decision.upsert
+    channel: decisions
+    kind: upsert
+    payload:
+      required:
+        - correlationId
+        - row
+      properties:
+        correlationId:
+          type: string
+        row:
+          $ref: "./rest-api.openapi.yaml#/components/schemas/DecisionRow"
+        debug:
+          type: object
+          description: Present only when detailLevel=debug and role permits it.
+  - name: trade.upsert
+    channel: trades
+    kind: upsert
+    payload:
+      required:
+        - correlationId
+        - row
+      properties:
+        correlationId:
+          type: string
+        row:
+          $ref: "./rest-api.openapi.yaml#/components/schemas/TradeRow"
+        debug:
+          type: object
+          description: Present only when detailLevel=debug and role permits it.
+  - name: skip.upsert
+    channel: skips
+    kind: upsert
+    payload:
+      required:
+        - correlationId
+        - row
+      properties:
+        correlationId:
+          type: string
+        row:
+          $ref: "./rest-api.openapi.yaml#/components/schemas/SkipRow"
+  - name: pnl.upsert
+    channel: pnl
+    kind: upsert
+    payload:
+      required:
+        - scopeType
+        - scopeKey
+        - bucketType
+        - summary
+  - name: queue_metric.upsert
+    channel: operations
+    kind: upsert
+    payload:
+      required:
+        - queueName
+        - row
+      properties:
+        queueName:
+          type: string
+        row:
+          $ref: "./rest-api.openapi.yaml#/components/schemas/QueueRow"
+        debug:
+          type: object
+          description: Optional source-diagnostic context for developer or admin sessions.
+  - name: alert.upsert
+    channel: alerts
+    kind: upsert
+    payload:
+      required:
+        - alertId
+        - row
+      properties:
+        alertId:
+          type: string
+        row:
+          $ref: "./rest-api.openapi.yaml#/components/schemas/AlertRow"
+        debug:
+          type: object
+          description: Optional threshold and raw-source context for developer or admin sessions.
+  - name: stream.status
+    channel: overview
+    kind: status
+    payload:
+      required:
+        - connectionState
+        - freshnessTimestamp
+        - degraded
+      properties:
+        connectionState:
+          type: string
+          enum:
+            - connected
+            - reconnecting
+            - paused
+            - degraded
+        freshnessTimestamp:
+          type: string
+          format: date-time
+        degraded:
+          type: boolean
+        reconciliationPending:
+          type: boolean
+  - name: stream.gap
+    channel: overview
+    kind: gap
+    payload:
+      required:
+        - gapType
+        - affectedChannels
+        - detectedAt
+        - message
+      properties:
+        gapType:
+          type: string
+          enum:
+            - missing_terminal_event
+            - history_mismatch
+            - backfill_pending
+            - resync_required
+        affectedChannels:
+          type: array
+          items:
+            type: string
+        detectedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+        correlationId:
+          type: string
+        strategyId:
+          type: string
+  - name: stream.resync_required
+    channel: overview
+    kind: resync_required
+    payload:
+      required:
+        - reason
+        - affectedChannels
+        - refetch
+      properties:
+        reason:
+          type: string
+        affectedChannels:
+          type: array
+          items:
+            type: string
+        refetch:
+          type: boolean
+        cursorStart:
+          type: integer
+client_behavior:
+  pause_resume:
+    - pause is client-controlled and freezes visible list mutation without closing the stream by default
+    - when paused, the client buffers projection changes by channel and shows a paused freshness badge
+    - on resume, buffered events are applied in ascending projectionChangeId order
+    - if the pause buffer exceeds the configured limit, the client triggers REST refetch and clears the paused buffer
+  reconnect:
+    - automatic reconnect uses exponential backoff
+    - reconnect state and last successful freshness timestamp remain visible in the UI
+    - last known good data remains visible during reconnect unless the user changes query scope
+    - after reconnect, historical REST results and stream upserts must converge on identical identifiers and timestamps
+security_notes:
+  - browser clients never connect directly to RabbitMQ or Kalshi
+  - stream subscriptions are filtered server-side by effective capability result and strategy scope
+  - requesting `detailLevel=debug` without `detailLevelMax = debug` returns HTTP 403
+  - policy changes that reduce scope or detail level apply on the next authorized stream request or reconnect

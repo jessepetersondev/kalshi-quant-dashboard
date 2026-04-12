@@ -1,0 +1,16 @@
+{
+  "id": "33333333-3333-3333-3333-333333333333",
+  "category": "trading",
+  "name": "order.execution_succeeded",
+  "resourceId": "publisher-order-1",
+  "correlationId": "corr-btc-1",
+  "idempotencyKey": "idem-btc-1",
+  "attributes": {
+    "publisherOrderId": "publisher-order-1",
+    "clientOrderId": "client-order-1",
+    "externalOrderId": "external-order-1",
+    "commandEventId": "command-event-1",
+    "status": "accepted"
+  },
+  "occurredAt": "2026-04-11T12:00:03Z"
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@kalshi-quant-dashboard/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/db/src/index.d.ts",
+      "import": "./dist/db/src/index.js"
+    }
+  },
+  "dependencies": {
+    "@kalshi-quant-dashboard/contracts": "workspace:*",
+    "@kalshi-quant-dashboard/config": "workspace:*",
+    "drizzle-orm": "^0.40.0",
+    "pg": "^8.13.3"
+  },
+  "scripts": {
+    "build": "tsx ../../scripts/clean-dist.ts && tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.5"
+  }
+}

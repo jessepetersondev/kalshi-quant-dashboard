@@ -1,0 +1,17 @@
+{
+  "id": "11111111-1111-1111-1111-111111111111",
+  "category": "trading",
+  "name": "trade-intent.created",
+  "resourceId": "trade-intent-1",
+  "correlationId": "corr-btc-1",
+  "idempotencyKey": "idem-btc-1",
+  "attributes": {
+    "strategyName": "kalshi-btc-quant",
+    "ticker": "KXBTCD-TEST",
+    "side": "yes",
+    "quantity": "2",
+    "limitPrice": "0.42",
+    "decisionReason": "momentum entry"
+  },
+  "occurredAt": "2026-04-11T12:00:00Z"
+}

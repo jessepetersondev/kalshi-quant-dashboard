@@ -1,0 +1,114 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kalshi_quant_dashboard
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kalshi_quant_dashboard"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    ports:
+      - "${SMOKE_POSTGRES_PORT:-55433}:5432"
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    ports:
+      - "${SMOKE_RABBITMQ_PORT:-5673}:5672"
+      - "${SMOKE_RABBITMQ_MANAGEMENT_PORT:-15673}:15672"
+
+  api:
+    image: kqd-api-smoke:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      AUTH_MODE: dev
+      PORT_API: 3001
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/kalshi_quant_dashboard
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_MANAGEMENT_URL: http://guest:guest@rabbitmq:15672/api
+      PUBLISHER_BASE_URL: http://publisher.invalid
+      EXECUTOR_BASE_URL: http://executor.invalid
+      STRATEGY_BTC_BASE_URL: http://btc.invalid
+      STRATEGY_ETH_BASE_URL: http://eth.invalid
+      STRATEGY_SOL_BASE_URL: http://sol.invalid
+      STRATEGY_XRP_BASE_URL: http://xrp.invalid
+      SESSION_COOKIE_SECRET: smoke-session-secret
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health/ready').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "${SMOKE_API_PORT:-39081}:3001"
+    networks:
+      default:
+        aliases:
+          - kqd-api
+
+  ingest:
+    image: kqd-ingest-smoke:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT_INGEST: 3002
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/kalshi_quant_dashboard
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_MANAGEMENT_URL: http://guest:guest@rabbitmq:15672/api
+      PUBLISHER_BASE_URL: http://publisher.invalid
+      EXECUTOR_BASE_URL: http://executor.invalid
+      STRATEGY_BTC_BASE_URL: http://btc.invalid
+      STRATEGY_ETH_BASE_URL: http://eth.invalid
+      STRATEGY_SOL_BASE_URL: http://sol.invalid
+      STRATEGY_XRP_BASE_URL: http://xrp.invalid
+      SESSION_COOKIE_SECRET: smoke-session-secret
+      INGEST_ENABLE_STRATEGY_COLLECTORS: "false"
+      INGEST_ENABLE_PUBLISHER_COLLECTOR: "false"
+      INGEST_ENABLE_EXECUTOR_COLLECTOR: "false"
+      INGEST_ENABLE_RABBITMQ_MANAGEMENT_COLLECTOR: "false"
+      INGEST_ENABLE_RABBITMQ_CONSUMERS: "false"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3002/health/ready').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "${SMOKE_INGEST_PORT:-39082}:3002"
+
+  web:
+    image: kqd-web-smoke:local
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/health/ready >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "${SMOKE_WEB_PORT:-39080}:8080"

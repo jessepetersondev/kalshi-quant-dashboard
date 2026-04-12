@@ -1,0 +1,28 @@
+{
+  "ran_at": "2026-04-11T12:00:00Z",
+  "mode": "live",
+  "spot": {
+    "price": 125.4,
+    "source": "test",
+    "timestamp": "2026-04-11T12:00:00Z"
+  },
+  "series": [
+    "KXSOL15M"
+  ],
+  "raw_market_count": 8,
+  "supported_market_count": 6,
+  "target_market_count": 4,
+  "actionable_candidate_count": 0,
+  "blocked_candidate_count": 4,
+  "global_block_reason": "no side passed gate",
+  "top_reasons": [
+    {
+      "reason": "no side passed gate",
+      "count": 3
+    },
+    {
+      "reason": "already holding",
+      "count": 1
+    }
+  ]
+}

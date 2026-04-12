@@ -1,0 +1,10 @@
+namespace: kqd-production
+resources:
+  - ../../base
+images:
+  - name: kalshi-quant-dashboard-web
+    newTag: production-latest
+  - name: kalshi-quant-dashboard-api
+    newTag: production-latest
+  - name: kalshi-quant-dashboard-ingest
+    newTag: production-latest

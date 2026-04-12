@@ -1,0 +1,24 @@
+{
+  "mode": "live",
+  "halted": false,
+  "halt_reason": null,
+  "last_scan_at": "2026-04-11T12:10:00Z",
+  "latest_decisions": [
+    {
+      "action": "skip",
+      "ticker": "KXBTCD-SKIP-ONLY",
+      "title": "BTC skip-only diagnostic",
+      "side": null,
+      "contracts": 0,
+      "price": 0,
+      "edge": 0,
+      "reason": "cooldown after recent fill",
+      "timestamp": "2026-04-11T12:10:00Z"
+    }
+  ],
+  "latest_evaluations": [],
+  "performance": {
+    "realized_pnl_today": 0.2,
+    "unrealized_pnl": 0
+  }
+}

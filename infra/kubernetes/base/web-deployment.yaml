@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kqd-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kqd-web
+  template:
+    metadata:
+      labels:
+        app: kqd-web
+    spec:
+      containers:
+        - name: web
+          image: kalshi-quant-dashboard-web:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15

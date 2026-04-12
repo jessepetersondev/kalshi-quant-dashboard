@@ -1,0 +1,10 @@
+namespace: kqd-staging
+resources:
+  - ../../base
+images:
+  - name: kalshi-quant-dashboard-web
+    newTag: staging-latest
+  - name: kalshi-quant-dashboard-api
+    newTag: staging-latest
+  - name: kalshi-quant-dashboard-ingest
+    newTag: staging-latest

@@ -1,0 +1,17 @@
+{
+  "id": "44444444-4444-4444-4444-444444444444",
+  "sourceEventId": "22222222-2222-2222-2222-222222222222",
+  "sourceCategory": "trading",
+  "sourceEventName": "order.created",
+  "resourceId": "publisher-order-2",
+  "correlationId": "corr-btc-2",
+  "idempotencyKey": "idem-btc-2",
+  "deadLetterQueue": "kalshi.integration.executor.dlq",
+  "attemptCount": 2,
+  "errorType": "HttpRequestException",
+  "errorMessage": "transient",
+  "originalPayload": "{\"id\":\"22222222-2222-2222-2222-222222222222\"}",
+  "deadLetteredAtUtc": "2026-04-11T12:05:00Z",
+  "lastReplayedAtUtc": null,
+  "replayCount": 0
+}

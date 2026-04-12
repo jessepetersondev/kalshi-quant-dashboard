@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kqd-runtime
+data:
+  AUTH_MODE: oidc
+  PORT_API: "3001"
+  PORT_INGEST: "3002"
+  WEB_PORT: "8080"
+  RABBITMQ_MANAGEMENT_URL: http://rabbitmq-management:15672/api
+  PUBLISHER_BASE_URL: http://kalshi-integration-event-publisher:5001
+  EXECUTOR_BASE_URL: http://kalshi-integration-executor:5002
+  STRATEGY_BTC_BASE_URL: http://kalshi-btc-quant:8101
+  STRATEGY_ETH_BASE_URL: http://kalshi-eth-quant:8102
+  STRATEGY_SOL_BASE_URL: http://kalshi-sol-quant:8103
+  STRATEGY_XRP_BASE_URL: http://kalshi-xrp-quant:8104
+  INGEST_POLL_INTERVAL_MS: "60000"
+  INGEST_ENABLE_STRATEGY_COLLECTORS: "true"
+  INGEST_ENABLE_PUBLISHER_COLLECTOR: "true"
+  INGEST_ENABLE_EXECUTOR_COLLECTOR: "true"
+  INGEST_ENABLE_RABBITMQ_MANAGEMENT_COLLECTOR: "true"
+  INGEST_ENABLE_RABBITMQ_CONSUMERS: "true"

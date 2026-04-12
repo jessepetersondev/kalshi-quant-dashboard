@@ -1,0 +1,28 @@
+{
+  "ran_at": "2026-04-11T12:11:00Z",
+  "mode": "live",
+  "spot": {
+    "price": 3012.1,
+    "source": "fixture",
+    "timestamp": "2026-04-11T12:11:00Z"
+  },
+  "series": [
+    "KXETH15M"
+  ],
+  "raw_market_count": 12,
+  "supported_market_count": 10,
+  "target_market_count": 5,
+  "actionable_candidate_count": 0,
+  "blocked_candidate_count": 5,
+  "global_block_reason": "no side passed gate",
+  "top_reasons": [
+    {
+      "reason": "no side passed gate",
+      "count": 4
+    },
+    {
+      "reason": "already holding",
+      "count": 1
+    }
+  ]
+}

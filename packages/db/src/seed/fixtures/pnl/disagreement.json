@@ -1,0 +1,28 @@
+{
+  "strategyId": "btc",
+  "marketTicker": "KXBTCD-DISAGREE",
+  "position": {
+    "side": "yes",
+    "contracts": 2,
+    "averageEntryPrice": 0.41,
+    "lastMarkedPrice": 0.52,
+    "feesPaid": 0.01,
+    "status": "open",
+    "occurredAt": "2026-04-11T12:06:00Z",
+    "metadata": {}
+  },
+  "trades": [
+    {
+      "tradeId": "trade-disagreement-1",
+      "correlationId": "corr-btc-disagreement",
+      "status": "accepted",
+      "quantity": 2,
+      "occurredAt": "2026-04-11T12:06:00Z",
+      "metadata": {
+        "realized_pnl": 0.05,
+        "feeAmount": 0.02
+      }
+    }
+  ],
+  "directSnapshotTotalPnl": 9.99
+}

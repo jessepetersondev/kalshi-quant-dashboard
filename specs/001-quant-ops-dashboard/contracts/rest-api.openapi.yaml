@@ -1,0 +1,1906 @@
+openapi: 3.1.0
+info:
+  title: Kalshi Quant Dashboard API
+  version: 0.3.0
+  description: |
+    Authenticated REST API for historical queries, live or historical convergence,
+    admin-managed access policy, feature-flag mutation, alert-rule management,
+    role-scoped diagnostics, and export enforcement.
+servers:
+  - url: https://internal.example.com
+    description: Production internal deployment
+  - url: http://localhost:3001
+    description: Local development
+security:
+  - cookieAuth: []
+paths:
+  /api/auth/session:
+    get:
+      summary: Get current authenticated session and effective capability result
+      operationId: getSession
+      responses:
+        '200':
+          description: Active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/overview:
+    get:
+      summary: Get overview dashboard snapshot
+      operationId: getOverview
+      parameters:
+        - $ref: '#/components/parameters/Timezone'
+      responses:
+        '200':
+          description: Overview snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverviewResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/strategies:
+    get:
+      summary: List strategies visible to the current user
+      operationId: listStrategies
+      responses:
+        '200':
+          description: Strategy summaries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StrategySummary'
+
+  /api/strategies/{strategyId}:
+    get:
+      summary: Get strategy detail view
+      operationId: getStrategyDetail
+      parameters:
+        - $ref: '#/components/parameters/StrategyId'
+        - $ref: '#/components/parameters/Timezone'
+        - $ref: '#/components/parameters/Range'
+      responses:
+        '200':
+          description: Strategy detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyDetailResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/decisions:
+    get:
+      summary: Query decision lifecycles
+      operationId: listDecisions
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Timezone'
+        - $ref: '#/components/parameters/Range'
+        - $ref: '#/components/parameters/DetailLevel'
+        - name: strategy
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: symbol
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: market
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: lifecycleStage
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: degraded
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Paginated decisions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/decisions/{correlationId}:
+    get:
+      summary: Get one decision lifecycle detail
+      operationId: getDecisionDetail
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+        - $ref: '#/components/parameters/Timezone'
+        - $ref: '#/components/parameters/DetailLevel'
+      responses:
+        '200':
+          description: Decision detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionDetailResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/trades:
+    get:
+      summary: Query trade and order lifecycle rows
+      operationId: listTrades
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Timezone'
+        - $ref: '#/components/parameters/Range'
+        - $ref: '#/components/parameters/DetailLevel'
+        - name: strategy
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: symbol
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: market
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: lifecycleStage
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: degraded
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Paginated trades
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradeListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/trades/{correlationId}:
+    get:
+      summary: Get one trade lifecycle detail
+      operationId: getTradeDetail
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+        - $ref: '#/components/parameters/Timezone'
+        - $ref: '#/components/parameters/DetailLevel'
+      responses:
+        '200':
+          description: Trade detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradeDetailResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/skips:
+    get:
+      summary: Query skipped trades and taxonomy breakdowns
+      operationId: listSkips
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Timezone'
+        - $ref: '#/components/parameters/Range'
+        - name: strategy
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: symbol
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: market
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: skipCategory
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: Paginated skipped trade rows and aggregates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkipListResponse'
+
+  /api/pnl/summary:
+    get:
+      summary: Get PnL summaries for selected scopes and ranges
+      operationId: getPnlSummary
+      parameters:
+        - $ref: '#/components/parameters/Timezone'
+        - name: bucket
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, mtd, ytd, all_time, custom]
+        - name: rangeStartUtc
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: rangeEndUtc
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: strategy
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: PnL summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PnlSummaryResponse'
+
+  /api/pnl/timeseries:
+    get:
+      summary: Get PnL time series and attribution
+      operationId: getPnlTimeseries
+      parameters:
+        - $ref: '#/components/parameters/Timezone'
+        - $ref: '#/components/parameters/Range'
+        - name: granularity
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [hour, day, week]
+      responses:
+        '200':
+          description: PnL timeseries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PnlTimeseriesResponse'
+
+  /api/operations/queues:
+    get:
+      summary: Get pipeline and RabbitMQ operations snapshot
+      operationId: getQueueOperations
+      parameters:
+        - $ref: '#/components/parameters/DetailLevel'
+      responses:
+        '200':
+          description: Queue operations data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationsResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/system-health:
+    get:
+      summary: Get system health summary and degraded-state context
+      operationId: getSystemHealth
+      responses:
+        '200':
+          description: System health
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemHealthResponse'
+
+  /api/alerts:
+    get:
+      summary: Query alerts and incidents
+      operationId: listAlerts
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Timezone'
+        - $ref: '#/components/parameters/DetailLevel'
+        - name: severity
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: strategy
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: Paginated alerts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/alerts/{alertId}:
+    get:
+      summary: Get dedicated alert detail for /alerts/:alertId
+      operationId: getAlertDetail
+      parameters:
+        - $ref: '#/components/parameters/AlertId'
+        - $ref: '#/components/parameters/Timezone'
+        - $ref: '#/components/parameters/DetailLevel'
+      responses:
+        '200':
+          description: Alert detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertDetailResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/exports/{resource}.csv:
+    get:
+      summary: Export the current authorized query as CSV
+      operationId: exportCsv
+      parameters:
+        - name: resource
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [decisions, trades, skips, alerts, pnl]
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Timezone'
+        - $ref: '#/components/parameters/Range'
+        - $ref: '#/components/parameters/Strategy'
+        - $ref: '#/components/parameters/Symbol'
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/Status'
+        - $ref: '#/components/parameters/Severity'
+        - $ref: '#/components/parameters/SkipCategory'
+        - $ref: '#/components/parameters/Bucket'
+        - $ref: '#/components/parameters/RangeStartUtc'
+        - $ref: '#/components/parameters/RangeEndUtc'
+        - $ref: '#/components/parameters/Compare'
+      responses:
+        '200':
+          description: CSV export
+          content:
+            text/csv:
+              schema:
+                type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/access-policies:
+    get:
+      summary: List access and export policies
+      operationId: listAccessPolicies
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Access policy records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessPolicyListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      summary: Create an access or export policy
+      operationId: createAccessPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessPolicyCreateRequest'
+      responses:
+        '201':
+          description: Created access policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessPolicyMutationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /api/admin/access-policies/{accessPolicyId}:
+    get:
+      summary: Get one access or export policy
+      operationId: getAccessPolicy
+      parameters:
+        - $ref: '#/components/parameters/AccessPolicyId'
+      responses:
+        '200':
+          description: Access policy detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessPolicyRecord'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update an access or export policy
+      operationId: updateAccessPolicy
+      parameters:
+        - $ref: '#/components/parameters/AccessPolicyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessPolicyUpdateRequest'
+      responses:
+        '200':
+          description: Updated access policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessPolicyMutationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /api/admin/alert-rules:
+    get:
+      summary: List persisted alert rule configuration
+      operationId: listAlertRules
+      responses:
+        '200':
+          description: Alert rule configs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRuleListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/alert-rules/{alertRuleId}:
+    patch:
+      summary: Update one alert rule threshold or enablement
+      operationId: updateAlertRule
+      parameters:
+        - $ref: '#/components/parameters/AlertRuleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleUpdateRequest'
+      responses:
+        '200':
+          description: Updated alert rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRuleMutationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /api/admin/feature-flags:
+    get:
+      summary: List admin-managed feature flags
+      operationId: listFeatureFlags
+      responses:
+        '200':
+          description: Feature flags
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlagListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/feature-flags/{featureFlagKey}:
+    patch:
+      summary: Update one feature flag
+      operationId: updateFeatureFlag
+      parameters:
+        - $ref: '#/components/parameters/FeatureFlagKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeatureFlagUpdateRequest'
+      responses:
+        '200':
+          description: Updated feature flag
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlagMutationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /api/admin/audit-logs:
+    get:
+      summary: Query privileged audit logs
+      operationId: listAuditLogs
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: kqd_session
+
+  parameters:
+    StrategyId:
+      name: strategyId
+      in: path
+      required: true
+      schema:
+        type: string
+    CorrelationId:
+      name: correlationId
+      in: path
+      required: true
+      schema:
+        type: string
+    AlertId:
+      name: alertId
+      in: path
+      required: true
+      schema:
+        type: string
+    AlertRuleId:
+      name: alertRuleId
+      in: path
+      required: true
+      schema:
+        type: string
+    AccessPolicyId:
+      name: accessPolicyId
+      in: path
+      required: true
+      schema:
+        type: string
+    FeatureFlagKey:
+      name: featureFlagKey
+      in: path
+      required: true
+      schema:
+        type: string
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 50
+    Sort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        default: newest
+    Search:
+      name: search
+      in: query
+      schema:
+        type: string
+    Timezone:
+      name: timezone
+      in: query
+      schema:
+        type: string
+        enum: [utc, local]
+        default: utc
+    DetailLevel:
+      name: detailLevel
+      in: query
+      schema:
+        type: string
+        enum: [standard, debug]
+        default: standard
+    Range:
+      name: range
+      in: query
+      schema:
+        type: string
+        description: Preset range token or custom marker.
+    Strategy:
+      name: strategy
+      in: query
+      schema:
+        type: string
+        description: Comma-separated strategy ids.
+    Symbol:
+      name: symbol
+      in: query
+      schema:
+        type: string
+        description: Comma-separated symbols.
+    Market:
+      name: market
+      in: query
+      schema:
+        type: string
+        description: Comma-separated market tickers.
+    Status:
+      name: status
+      in: query
+      schema:
+        type: string
+        description: Comma-separated lifecycle or alert statuses.
+    Severity:
+      name: severity
+      in: query
+      schema:
+        type: string
+        description: Comma-separated alert severities.
+    SkipCategory:
+      name: skipCategory
+      in: query
+      schema:
+        type: string
+        description: Comma-separated canonical skip categories.
+    Bucket:
+      name: bucket
+      in: query
+      schema:
+        type: string
+        enum: [24h, 7d, 30d, mtd, ytd, all-time, custom]
+    RangeStartUtc:
+      name: rangeStartUtc
+      in: query
+      schema:
+        type: string
+        format: date-time
+    RangeEndUtc:
+      name: rangeEndUtc
+      in: query
+      schema:
+        type: string
+        format: date-time
+    Compare:
+      name: compare
+      in: query
+      schema:
+        type: string
+        description: Comma-separated strategy ids for compare-mode exports.
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Authenticated but not authorized for the requested surface
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Version conflict or conflicting policy state
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ConflictResponse'
+    ValidationFailed:
+      description: Request body failed validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+
+  schemas:
+    SessionResponse:
+      type: object
+      required: [userId, email, role, effectiveCapability]
+      properties:
+        userId:
+          type: string
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [operator, developer, admin]
+        effectiveCapability:
+          $ref: '#/components/schemas/EffectiveCapabilityResolution'
+
+    EffectiveCapabilityResolution:
+      type: object
+      required:
+        - resolvedRole
+        - strategyScope
+        - detailLevelMax
+        - canViewRawPayloads
+        - canViewPrivilegedAuditLogs
+        - canManageAlertRules
+        - canManageFeatureFlags
+        - canManageAccessPolicies
+        - allowedExportResources
+        - resolutionVersion
+        - resolvedAt
+      properties:
+        resolvedRole:
+          type: string
+          enum: [operator, developer, admin]
+        strategyScope:
+          type: array
+          items:
+            type: string
+        detailLevelMax:
+          type: string
+          enum: [standard, debug]
+        canViewRawPayloads:
+          type: boolean
+        canViewPrivilegedAuditLogs:
+          type: boolean
+        canManageAlertRules:
+          type: boolean
+        canManageFeatureFlags:
+          type: boolean
+        canManageAccessPolicies:
+          type: boolean
+        allowedExportResources:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllowedExportResource'
+        resolutionVersion:
+          type: string
+        resolvedAt:
+          type: string
+          format: date-time
+
+    AllowedExportResource:
+      type: object
+      required: [resource, strategyScope, columnProfile]
+      properties:
+        resource:
+          type: string
+          enum: [decisions, trades, skips, alerts, pnl, operations, audit_logs]
+        strategyScope:
+          type: array
+          items:
+            type: string
+        columnProfile:
+          type: string
+          enum: [summary, detailed, raw_payload]
+
+    OverviewResponse:
+      type: object
+      required:
+        - generatedAt
+        - healthSummary
+        - aggregatePnl
+        - liveDecisionFeed
+        - liveTradeFeed
+        - queueSummary
+        - recentAlerts
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        healthSummary:
+          $ref: '#/components/schemas/SystemHealthSummary'
+        aggregatePnl:
+          $ref: '#/components/schemas/PnlSummaryCard'
+        liveDecisionFeed:
+          type: array
+          items:
+            $ref: '#/components/schemas/DecisionRow'
+        liveTradeFeed:
+          type: array
+          items:
+            $ref: '#/components/schemas/TradeRow'
+        queueSummary:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueRow'
+        recentAlerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertRow'
+
+    StrategySummary:
+      type: object
+      required: [strategyId, displayName, symbol, sourcePathMode, healthStatus]
+      properties:
+        strategyId:
+          type: string
+        displayName:
+          type: string
+        symbol:
+          type: string
+        sourcePathMode:
+          type: string
+          enum: [publisher_only, direct_only, hybrid]
+        healthStatus:
+          type: string
+        latestHeartbeatAt:
+          type: string
+          format: date-time
+          nullable: true
+        latestPnlSnapshotAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    StrategyDetailResponse:
+      type: object
+      required:
+        - strategy
+        - pnlSummary
+        - recentDecisions
+        - recentTrades
+        - recentSkips
+        - activeAlerts
+      properties:
+        strategy:
+          $ref: '#/components/schemas/StrategySummary'
+        pnlSummary:
+          $ref: '#/components/schemas/PnlSummaryCard'
+        recentDecisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/DecisionRow'
+        recentTrades:
+          type: array
+          items:
+            $ref: '#/components/schemas/TradeRow'
+        recentSkips:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkipRow'
+        activeAlerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertRow'
+
+    DecisionListResponse:
+      type: object
+      required: [items, pageInfo]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DecisionRow'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+
+    TradeListResponse:
+      type: object
+      required: [items, pageInfo]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TradeRow'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+
+    SkipListResponse:
+      type: object
+      required: [items, pageInfo, breakdown]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkipRow'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+        breakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkipBreakdownRow'
+
+    AlertListResponse:
+      type: object
+      required: [items, pageInfo]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertRow'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+
+    DecisionRow:
+      type: object
+      required:
+        - correlationId
+        - strategyId
+        - marketTicker
+        - decisionAction
+        - currentLifecycleStage
+        - latestEventAt
+        - sourcePathMode
+      properties:
+        correlationId:
+          type: string
+        strategyId:
+          type: string
+        symbol:
+          type: string
+        marketTicker:
+          type: string
+        decisionAction:
+          type: string
+        reasonSummary:
+          type: string
+        currentLifecycleStage:
+          type: string
+        currentOutcomeStatus:
+          type: string
+        latestEventAt:
+          type: string
+          format: date-time
+        sourcePathMode:
+          type: string
+          enum: [publisher_only, direct_only, hybrid]
+        degraded:
+          type: boolean
+
+    TradeRow:
+      type: object
+      required:
+        - correlationId
+        - tradeAttemptKey
+        - strategyId
+        - marketTicker
+        - status
+        - latestSeenAt
+        - sourcePathMode
+      properties:
+        correlationId:
+          type: string
+        tradeAttemptKey:
+          type: string
+        strategyId:
+          type: string
+        symbol:
+          type: string
+        marketTicker:
+          type: string
+        status:
+          type: string
+        publishStatus:
+          type: string
+          nullable: true
+        lastResultStatus:
+          type: string
+          nullable: true
+        latestSeenAt:
+          type: string
+          format: date-time
+        sourcePathMode:
+          type: string
+          enum: [publisher_only, direct_only, hybrid]
+        degraded:
+          type: boolean
+
+    SkipRow:
+      type: object
+      required:
+        - correlationId
+        - strategyId
+        - marketTicker
+        - skipCategory
+        - reasonRaw
+        - occurredAt
+      properties:
+        correlationId:
+          type: string
+        strategyId:
+          type: string
+        symbol:
+          type: string
+        marketTicker:
+          type: string
+        skipCategory:
+          type: string
+        skipCode:
+          type: string
+          nullable: true
+        reasonRaw:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+
+    SkipBreakdownRow:
+      type: object
+      required: [skipCategory, count]
+      properties:
+        skipCategory:
+          type: string
+        skipCode:
+          type: string
+          nullable: true
+        count:
+          type: integer
+
+    DecisionDetailResponse:
+      type: object
+      required:
+        - summary
+        - timeline
+        - rawPayloadAvailable
+      properties:
+        summary:
+          $ref: '#/components/schemas/DecisionRow'
+        timeline:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventTimelineItem'
+        relatedTrades:
+          type: array
+          items:
+            $ref: '#/components/schemas/TradeRow'
+        rawPayloadAvailable:
+          type: boolean
+        rawPayloads:
+          type: array
+          items:
+            $ref: '#/components/schemas/RawPayloadEntry'
+        debugMetadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    TradeDetailResponse:
+      type: object
+      required:
+        - summary
+        - timeline
+        - fills
+        - rawPayloadAvailable
+      properties:
+        summary:
+          $ref: '#/components/schemas/TradeRow'
+        timeline:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventTimelineItem'
+        fills:
+          type: array
+          items:
+            $ref: '#/components/schemas/FillRow'
+        rawPayloadAvailable:
+          type: boolean
+        rawPayloads:
+          type: array
+          items:
+            $ref: '#/components/schemas/RawPayloadEntry'
+        debugMetadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    AlertRow:
+      type: object
+      required:
+        - alertId
+        - alertType
+        - severity
+        - status
+        - summary
+        - latestSeenAt
+        - detailPath
+      properties:
+        alertId:
+          type: string
+        alertType:
+          type: string
+        severity:
+          type: string
+        status:
+          type: string
+        summary:
+          type: string
+        componentType:
+          type: string
+        componentKey:
+          type: string
+        latestSeenAt:
+          type: string
+          format: date-time
+        detailPath:
+          type: string
+
+    AlertDetailResponse:
+      type: object
+      required:
+        - summary
+        - relatedEvents
+        - navigation
+        - rawPayloadAvailable
+      properties:
+        summary:
+          $ref: '#/components/schemas/AlertRow'
+        relatedEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventTimelineItem'
+        rawPayloadAvailable:
+          type: boolean
+        rawPayloads:
+          type: array
+          items:
+            $ref: '#/components/schemas/RawPayloadEntry'
+        debugMetadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+        navigation:
+          type: object
+          required: [detailPath, drawerSupportedFrom]
+          properties:
+            detailPath:
+              type: string
+            drawerSupportedFrom:
+              type: array
+              items:
+                type: string
+                enum: [overview, alerts, strategy_detail, operations]
+
+    PnlSummaryResponse:
+      type: object
+      required: [generatedAt, items]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PnlSummaryCard'
+
+    PnlTimeseriesResponse:
+      type: object
+      required: [generatedAt, points]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        points:
+          type: array
+          items:
+            type: object
+            required: [timestamp, realizedPnlNet, unrealizedPnlNet]
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              realizedPnlNet:
+                type: number
+              unrealizedPnlNet:
+                type: number
+              feesTotal:
+                type: number
+              partial:
+                type: boolean
+              stale:
+                type: boolean
+
+    PnlSummaryCard:
+      type: object
+      required:
+        - scopeType
+        - scopeKey
+        - realizedPnlNet
+        - unrealizedPnlNet
+        - feesTotal
+      properties:
+        scopeType:
+          type: string
+        scopeKey:
+          type: string
+        realizedPnlNet:
+          type: number
+        unrealizedPnlNet:
+          type: number
+        feesTotal:
+          type: number
+        stale:
+          type: boolean
+        partial:
+          type: boolean
+        freshnessTimestamp:
+          type: string
+          format: date-time
+          nullable: true
+        disagreementCount:
+          type: integer
+
+    QueueRow:
+      type: object
+      required: [componentName, queueName, messageCount, consumerCount, sampledAt]
+      properties:
+        componentName:
+          type: string
+        queueName:
+          type: string
+        messageCount:
+          type: integer
+        messagesReady:
+          type: integer
+        messagesUnacknowledged:
+          type: integer
+        consumerCount:
+          type: integer
+        oldestMessageAgeSeconds:
+          type: number
+          nullable: true
+        dlqMessageCount:
+          type: integer
+          nullable: true
+        dlqGrowthTotal:
+          type: integer
+          nullable: true
+        reconnectStatus:
+          type: string
+          nullable: true
+        sampledAt:
+          type: string
+          format: date-time
+
+    OperationsResponse:
+      type: object
+      required: [generatedAt, queues, alerts]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        queues:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueRow'
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertRow'
+        rawPayloadAvailable:
+          type: boolean
+        debugMetadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    SystemHealthResponse:
+      type: object
+      required: [generatedAt, summary, components]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        summary:
+          $ref: '#/components/schemas/SystemHealthSummary'
+        components:
+          type: array
+          items:
+            type: object
+            required: [componentKey, status]
+            properties:
+              componentKey:
+                type: string
+              status:
+                type: string
+              latestSeenAt:
+                type: string
+                format: date-time
+                nullable: true
+              degradedReasons:
+                type: array
+                items:
+                  type: string
+
+    SystemHealthSummary:
+      type: object
+      required: [status, freshnessTimestamp]
+      properties:
+        status:
+          type: string
+        freshnessTimestamp:
+          type: string
+          format: date-time
+        degraded:
+          type: boolean
+
+    EventTimelineItem:
+      type: object
+      required:
+        - canonicalEventId
+        - canonicalFamily
+        - lifecycleStage
+        - occurredAt
+        - firstSeenAt
+        - sourceEventName
+      properties:
+        canonicalEventId:
+          type: string
+        canonicalFamily:
+          type: string
+        lifecycleStage:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        firstSeenAt:
+          type: string
+          format: date-time
+        sourceEventName:
+          type: string
+        sourcePathMode:
+          type: string
+        ordering:
+          type: object
+          additionalProperties: true
+        degradedReasons:
+          type: array
+          items:
+            type: string
+
+    RawPayloadEntry:
+      type: object
+      required: [canonicalEventId, sourceSystem, sourceEventName, rawPayload]
+      properties:
+        canonicalEventId:
+          type: string
+        sourceSystem:
+          type: string
+        sourceEventName:
+          type: string
+        rawPayload:
+          type: object
+          additionalProperties: true
+
+    FillRow:
+      type: object
+      required: [fillFactId, filledQuantity, occurredAt]
+      properties:
+        fillFactId:
+          type: string
+        filledQuantity:
+          type: integer
+        fillPrice:
+          type: number
+          nullable: true
+        feeAmount:
+          type: number
+          nullable: true
+        occurredAt:
+          type: string
+          format: date-time
+
+    AlertRuleListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertRuleConfig'
+
+    AlertRuleConfig:
+      type: object
+      required:
+        - alertRuleId
+        - alertType
+        - severity
+        - thresholdValue
+        - thresholdUnit
+        - enabled
+        - version
+      properties:
+        alertRuleId:
+          type: string
+        alertType:
+          type: string
+        scopeType:
+          type: string
+        scopeKey:
+          type: string
+        severity:
+          type: string
+        comparisonOperator:
+          type: string
+        thresholdValue:
+          type: number
+        thresholdUnit:
+          type: string
+        evaluationWindowSeconds:
+          type: integer
+        consecutiveFailuresRequired:
+          type: integer
+        cooldownSeconds:
+          type: integer
+        enabled:
+          type: boolean
+        configSource:
+          type: string
+        version:
+          type: integer
+
+    AlertRuleUpdateRequest:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: integer
+        severity:
+          type: string
+        thresholdValue:
+          type: number
+        thresholdUnit:
+          type: string
+        evaluationWindowSeconds:
+          type: integer
+        consecutiveFailuresRequired:
+          type: integer
+        cooldownSeconds:
+          type: integer
+        enabled:
+          type: boolean
+
+    AlertRuleMutationResponse:
+      type: object
+      required: [rule, audit]
+      properties:
+        rule:
+          $ref: '#/components/schemas/AlertRuleConfig'
+        audit:
+          $ref: '#/components/schemas/MutationAuditInfo'
+
+    AccessPolicyListResponse:
+      type: object
+      required: [items, pageInfo]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessPolicyRecord'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+
+    AccessPolicyRecord:
+      type: object
+      required:
+        - accessPolicyId
+        - name
+        - subjectType
+        - subjectKey
+        - precedence
+        - enabled
+        - version
+        - rules
+        - exportScopes
+      properties:
+        accessPolicyId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        subjectType:
+          type: string
+          enum: [user, role, global]
+        subjectKey:
+          type: string
+        precedence:
+          type: integer
+        enabled:
+          type: boolean
+        version:
+          type: integer
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessPolicyRule'
+        exportScopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExportScopeGrant'
+        audit:
+          $ref: '#/components/schemas/MutationAuditInfo'
+
+    AccessPolicyRule:
+      type: object
+      required: [ruleType, effect, enabled]
+      properties:
+        accessPolicyRuleId:
+          type: string
+          nullable: true
+        ruleType:
+          type: string
+          enum: [strategy_scope, raw_payload, debug_stream, privileged_audit, admin_surface]
+        effect:
+          type: string
+          enum: [allow, deny]
+        strategyScope:
+          type: array
+          items:
+            type: string
+          nullable: true
+        adminSurfaces:
+          type: array
+          items:
+            type: string
+            enum: [alert_rules, feature_flags, access_policies, audit_logs]
+          nullable: true
+        enabled:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+
+    ExportScopeGrant:
+      type: object
+      required: [resource, strategyScope, columnProfile, enabled]
+      properties:
+        exportScopeId:
+          type: string
+          nullable: true
+        resource:
+          type: string
+          enum: [decisions, trades, skips, alerts, pnl, operations, audit_logs]
+        strategyScope:
+          type: array
+          items:
+            type: string
+        columnProfile:
+          type: string
+          enum: [summary, detailed, raw_payload]
+        enabled:
+          type: boolean
+
+    AccessPolicyCreateRequest:
+      type: object
+      required:
+        - name
+        - subjectType
+        - subjectKey
+        - precedence
+        - enabled
+        - rules
+        - exportScopes
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        subjectType:
+          type: string
+          enum: [user, role, global]
+        subjectKey:
+          type: string
+        precedence:
+          type: integer
+        enabled:
+          type: boolean
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessPolicyRule'
+        exportScopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExportScopeGrant'
+
+    AccessPolicyUpdateRequest:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        precedence:
+          type: integer
+        enabled:
+          type: boolean
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessPolicyRule'
+        exportScopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExportScopeGrant'
+
+    AccessPolicyMutationResponse:
+      type: object
+      required: [policy, audit]
+      properties:
+        policy:
+          $ref: '#/components/schemas/AccessPolicyRecord'
+        audit:
+          $ref: '#/components/schemas/MutationAuditInfo'
+
+    FeatureFlagListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeatureFlagState'
+
+    FeatureFlagState:
+      type: object
+      required: [featureFlagKey, description, enabled, version, updatedAt, updatedByUserId]
+      properties:
+        featureFlagKey:
+          type: string
+        description:
+          type: string
+        enabled:
+          type: boolean
+        version:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+        updatedByUserId:
+          type: string
+
+    FeatureFlagUpdateRequest:
+      type: object
+      required: [version, enabled, reason]
+      properties:
+        version:
+          type: integer
+        enabled:
+          type: boolean
+        reason:
+          type: string
+
+    FeatureFlagMutationResponse:
+      type: object
+      required: [flag, audit]
+      properties:
+        flag:
+          $ref: '#/components/schemas/FeatureFlagState'
+        audit:
+          $ref: '#/components/schemas/MutationAuditInfo'
+
+    MutationAuditInfo:
+      type: object
+      required: [auditLogId, result, occurredAt]
+      properties:
+        auditLogId:
+          type: string
+        result:
+          type: string
+          enum: [succeeded, failed]
+        occurredAt:
+          type: string
+          format: date-time
+        actorUserId:
+          type: string
+          nullable: true
+
+    AuditLogListResponse:
+      type: object
+      required: [items, pageInfo]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogEntry'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+
+    AuditLogEntry:
+      type: object
+      required: [auditLogId, actionType, targetType, result, occurredAt]
+      properties:
+        auditLogId:
+          type: string
+        actionType:
+          type: string
+        targetType:
+          type: string
+        targetKey:
+          type: string
+        result:
+          type: string
+        reason:
+          type: string
+          nullable: true
+        occurredAt:
+          type: string
+          format: date-time
+
+    PageInfo:
+      type: object
+      required: [page, pageSize, totalItems, totalPages]
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+    ConflictResponse:
+      type: object
+      required: [code, message, currentVersion]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        currentVersion:
+          type: integer
+
+    ValidationErrorResponse:
+      type: object
+      required: [code, message, issues]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+
+    ValidationIssue:
+      type: object
+      required: [path, message]
+      properties:
+        path:
+          type: string
+        message:
+          type: string

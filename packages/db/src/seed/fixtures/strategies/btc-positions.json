@@ -1,0 +1,12 @@
+[
+  {
+    "ticker": "KXBTC-20260411-55000-BINANCE",
+    "title": "BTC above 55000 on 2026-04-11",
+    "side": "yes",
+    "contracts": 12,
+    "average_entry_price": 0.41,
+    "last_marked_price": 0.47,
+    "opened_at": "2026-04-11T14:00:00Z",
+    "updated_at": "2026-04-11T14:05:00Z"
+  }
+]

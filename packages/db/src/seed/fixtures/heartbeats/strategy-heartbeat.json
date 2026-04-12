@@ -1,0 +1,12 @@
+{
+  "status": "ok",
+  "asset": "ETH",
+  "mode": "live",
+  "halted": false,
+  "halt_reason": null,
+  "last_scan_at": "2026-04-11T12:00:00Z",
+  "spot": 3012.1,
+  "spot_source": "fixture",
+  "live_execution_configured": true,
+  "config_warnings": []
+}

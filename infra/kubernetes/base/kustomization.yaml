@@ -1,0 +1,8 @@
+resources:
+  - configmap.yaml
+  - api-deployment.yaml
+  - api-service.yaml
+  - ingest-deployment.yaml
+  - ingest-service.yaml
+  - web-deployment.yaml
+  - web-service.yaml

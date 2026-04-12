@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kqd-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kqd-api
+  template:
+    metadata:
+      labels:
+        app: kqd-api
+    spec:
+      containers:
+        - name: api
+          image: kalshi-quant-dashboard-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3001
+              name: http
+          envFrom:
+            - configMapRef:
+                name: kqd-runtime
+            - secretRef:
+                name: kqd-secrets
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
