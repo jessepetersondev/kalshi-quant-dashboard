@@ -17,7 +17,7 @@ describe.sequential("policy change reconnect handling", () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
     await shutdownTestDatabase();
   });
 

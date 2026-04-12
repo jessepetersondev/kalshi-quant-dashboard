@@ -18,7 +18,7 @@ describe.sequential("pnl disagreement reporting", () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
     await shutdownTestDatabase();
   });
 

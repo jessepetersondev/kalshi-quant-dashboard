@@ -26,7 +26,7 @@ describe.sequential("lifecycle convergence normal flow", () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
     await shutdownTestDatabase();
   });
 

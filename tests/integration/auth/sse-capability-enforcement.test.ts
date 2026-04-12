@@ -50,7 +50,7 @@ describe.sequential("SSE capability enforcement", () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
     await shutdownTestDatabase();
   });
 

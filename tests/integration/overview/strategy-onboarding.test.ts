@@ -19,7 +19,7 @@ describe.sequential("strategy onboarding visibility", () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
     await shutdownTestDatabase();
   });
 

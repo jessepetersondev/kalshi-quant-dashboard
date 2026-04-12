@@ -17,7 +17,7 @@ describe.sequential("foundational RBAC capability resolution", () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
     await shutdownTestDatabase();
   });
 

@@ -17,7 +17,7 @@ describe.sequential("admin access policy CRUD", () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
     await shutdownTestDatabase();
   });
 

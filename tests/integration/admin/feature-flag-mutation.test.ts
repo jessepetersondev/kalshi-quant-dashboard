@@ -17,7 +17,7 @@ describe.sequential("feature flag mutation", () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
     await shutdownTestDatabase();
   });
 

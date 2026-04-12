@@ -27,7 +27,7 @@ describe.sequential("lifecycle stream reconnect ordering", () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
     await shutdownTestDatabase();
   });
 

@@ -21,7 +21,7 @@ describe.sequential("lifecycle authorization", () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
     await shutdownTestDatabase();
   });
 
