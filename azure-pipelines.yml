@@ -1,0 +1,111 @@
+trigger:
+  branches:
+    include:
+      - master
+      - main
+
+pr:
+  autoCancel: true
+  branches:
+    include:
+      - master
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  NodeVersion: 22.x
+  PnpmVersion: 10.6.0
+  DatabaseUrl: postgres://postgres:postgres@127.0.0.1:5432/kalshi_quant_dashboard
+  PostgresContainerName: kqd-azdo-postgres
+
+stages:
+  - stage: validate
+    displayName: Validate build and tests
+    jobs:
+      - job: build_test
+        displayName: Install, lint, test, and build
+        steps:
+          - checkout: self
+            clean: true
+
+          - task: NodeTool@0
+            displayName: Install Node.js $(NodeVersion)
+            inputs:
+              versionSpec: $(NodeVersion)
+
+          - script: |
+              corepack enable
+              corepack prepare pnpm@$(PnpmVersion) --activate
+              pnpm --version
+            displayName: Enable pnpm $(PnpmVersion)
+
+          - script: |
+              docker rm -f $(PostgresContainerName) 2>/dev/null || true
+              docker run -d \
+                --name $(PostgresContainerName) \
+                -e POSTGRES_DB=kalshi_quant_dashboard \
+                -e POSTGRES_PASSWORD=postgres \
+                -e POSTGRES_USER=postgres \
+                -p 5432:5432 \
+                --health-cmd "pg_isready -U postgres -d kalshi_quant_dashboard" \
+                --health-interval 10s \
+                --health-timeout 5s \
+                --health-retries 10 \
+                postgres:16-alpine
+
+              for attempt in $(seq 1 30); do
+                status="$(docker inspect --format='{{json .State.Health.Status}}' $(PostgresContainerName) 2>/dev/null || true)"
+                if [ "$status" = '"healthy"' ]; then
+                  exit 0
+                fi
+                sleep 2
+              done
+
+              docker logs $(PostgresContainerName)
+              exit 1
+            displayName: Start Postgres test service
+
+          - script: pnpm install --frozen-lockfile
+            displayName: Install workspace dependencies
+
+          - script: pnpm lint
+            displayName: Run ESLint
+
+          - script: pnpm typecheck
+            displayName: Run TypeScript typecheck
+
+          - script: pnpm test
+            displayName: Run unit tests
+
+          - script: pnpm test:integration
+            displayName: Run integration tests
+            env:
+              CI: "true"
+              DATABASE_URL: $(DatabaseUrl)
+
+          - script: pnpm test:contract
+            displayName: Run contract tests
+
+          - script: pnpm exec playwright install --with-deps chromium
+            displayName: Install Playwright browser dependencies
+
+          - script: pnpm test:e2e
+            displayName: Run Playwright end-to-end tests
+            env:
+              CI: "true"
+              DATABASE_URL: $(DatabaseUrl)
+
+          - script: pnpm build
+            displayName: Build monorepo
+
+          - script: pnpm test:smoke
+            displayName: Run deployment smoke validation
+            env:
+              CI: "true"
+              DATABASE_URL: $(DatabaseUrl)
+
+          - script: docker rm -f $(PostgresContainerName) || true
+            displayName: Stop Postgres test service
+            condition: always()
