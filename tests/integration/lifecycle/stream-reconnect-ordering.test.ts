@@ -43,7 +43,8 @@ describe.sequential("lifecycle stream reconnect ordering", () => {
       method: "GET",
       url: "/api/live/stream?channels=decisions,trades",
       headers: {
-        "x-dashboard-user": "developer@example.internal"
+        "x-dashboard-user": "developer@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
       }
     });
 
@@ -57,7 +58,8 @@ describe.sequential("lifecycle stream reconnect ordering", () => {
       url: "/api/live/stream?channels=decisions,trades",
       headers: {
         "x-dashboard-user": "developer@example.internal",
-        "last-event-id": String(ids.at(-1))
+        "last-event-id": String(ids.at(-1)),
+        "x-kqd-test-stream-mode": "snapshot"
       }
     });
 
@@ -95,7 +97,8 @@ describe.sequential("lifecycle stream reconnect ordering", () => {
       method: "GET",
       url: "/api/live/stream?channels=skips",
       headers: {
-        "x-dashboard-user": "developer@example.internal"
+        "x-dashboard-user": "developer@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
       }
     });
 
@@ -152,7 +155,8 @@ describe.sequential("lifecycle stream reconnect ordering", () => {
       url: "/api/live/stream?channels=decisions",
       headers: {
         "x-dashboard-user": "developer@example.internal",
-        "last-event-id": String(tooOldCursor)
+        "last-event-id": String(tooOldCursor),
+        "x-kqd-test-stream-mode": "snapshot"
       }
     });
 

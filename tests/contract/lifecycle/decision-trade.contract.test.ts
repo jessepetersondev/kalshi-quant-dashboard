@@ -130,6 +130,8 @@ describe("decision and trade lifecycle contracts", () => {
       },
       timeline: [timelineItem],
       fills: [fill],
+      publisherDashboardLink:
+        "http://localhost:5001/dashboard/index.html?orderId=publisher-order-1&correlationId=corr-btc-1#outcomes",
       rawPayloadAvailable: true,
       rawPayloads: [
         {

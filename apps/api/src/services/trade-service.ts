@@ -6,6 +6,8 @@ import {
   type TradeListQuery,
   type TradeListResponse
 } from "@kalshi-quant-dashboard/contracts";
+import { createRuntimeConfig, type RuntimeConfig } from "@kalshi-quant-dashboard/config";
+import { query } from "@kalshi-quant-dashboard/db";
 
 import { projectFillFacts } from "../../../ingest/src/projections/fill-fact-projector.js";
 import {
@@ -19,7 +21,8 @@ import { normalizePaginationQuery, shouldExpandSearchToAllTime } from "./paginat
 export class TradeService {
   constructor(
     private readonly detailService = new DetailService(),
-    private readonly visibilityService = new DetailVisibilityService()
+    private readonly visibilityService = new DetailVisibilityService(),
+    private readonly runtimeConfig: RuntimeConfig = createRuntimeConfig()
   ) {}
 
   parseListQuery(input: unknown): TradeListQuery {
@@ -59,9 +62,10 @@ export class TradeService {
       effectiveCapability: args.effectiveCapability,
       detailLevel: args.detailLevel
     });
-    const [timeline, fills, rawPayloads, debugMetadata] = await Promise.all([
+    const [timeline, fills, publisherDashboardLink, rawPayloads, debugMetadata] = await Promise.all([
       this.detailService.getTimeline(args.correlationId),
       projectFillFacts(args.correlationId),
+      this.getPublisherDashboardLink(args.correlationId),
       visibility.includeRawPayloads
         ? this.detailService.getRawPayloadEntries(args.correlationId)
         : Promise.resolve(undefined),
@@ -74,9 +78,41 @@ export class TradeService {
       summary,
       timeline,
       fills,
+      publisherDashboardLink,
       rawPayloadAvailable: visibility.rawPayloadAvailable,
       rawPayloads,
       debugMetadata
     });
+  }
+
+  private async getPublisherDashboardLink(correlationId: string): Promise<string | undefined> {
+    const result = await query<{
+      publisher_order_id: string | null;
+      target_publisher_order_id: string | null;
+    }>(
+      `
+        select
+          t.publisher_order_id,
+          t.target_publisher_order_id
+        from trades t
+        where t.correlation_id = $1
+        order by coalesce(t.updated_at, t.occurred_at) desc, t.trade_id desc
+        limit 1
+      `,
+      [correlationId]
+    );
+
+    const url = new URL("/dashboard/index.html", this.runtimeConfig.publisherBaseUrl);
+    const row = result.rows[0];
+    const orderId = row?.publisher_order_id ?? row?.target_publisher_order_id ?? null;
+
+    if (orderId) {
+      url.searchParams.set("orderId", orderId);
+    }
+
+    url.searchParams.set("correlationId", correlationId);
+    url.hash = "outcomes";
+
+    return url.toString();
   }
 }

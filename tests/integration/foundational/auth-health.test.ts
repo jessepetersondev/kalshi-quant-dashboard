@@ -48,7 +48,10 @@ describe.sequential("foundational auth and health endpoints", () => {
     });
     const streamResponse = await app.inject({
       method: "GET",
-      url: "/api/live/stream?channels=overview"
+      url: "/api/live/stream?channels=overview",
+      headers: {
+        "x-kqd-test-stream-mode": "snapshot"
+      }
     });
 
     expect(sessionResponse.statusCode).toBe(401);

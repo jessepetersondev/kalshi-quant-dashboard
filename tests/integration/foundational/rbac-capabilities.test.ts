@@ -73,14 +73,16 @@ describe.sequential("foundational RBAC capability resolution", () => {
       method: "GET",
       url: "/api/live/stream?channels=overview&detailLevel=debug",
       headers: {
-        "x-dashboard-user": "operator@example.internal"
+        "x-dashboard-user": "operator@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
       }
     });
     const developerStream = await app.inject({
       method: "GET",
       url: "/api/live/stream?channels=overview&detailLevel=debug",
       headers: {
-        "x-dashboard-user": "developer@example.internal"
+        "x-dashboard-user": "developer@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
       }
     });
 

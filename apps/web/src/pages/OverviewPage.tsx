@@ -22,6 +22,7 @@ import { FreshnessBanner } from "../components/live/FreshnessBanner.js";
 import { formatTimestamp } from "../features/format/dateTime.js";
 import { createPauseBuffer } from "../features/live/pauseBuffer.js";
 import { connectStream } from "../features/live/streamClient.js";
+import { useLatestRef } from "../features/live/useLatestRef.js";
 import { useGetOverviewQuery } from "../features/overview/overviewApi.js";
 import { useTimezoneQueryState } from "../features/router/queryState.js";
 
@@ -49,6 +50,8 @@ export function OverviewPage() {
   const [streamState, setStreamState] = useState<StreamStatusEvent["payload"] | null>(null);
   const decisionBuffer = useRef(createPauseBuffer<DecisionRow>());
   const tradeBuffer = useRef(createPauseBuffer<TradeRow>());
+  const refetchRef = useLatestRef(refetch);
+  const degradedRef = useLatestRef(Boolean(data?.healthSummary.degraded));
 
   useEffect(() => {
     if (data) {
@@ -105,7 +108,7 @@ export function OverviewPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         },
         onResyncRequired() {
           setStreamState({
@@ -114,22 +117,22 @@ export function OverviewPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         },
         onError() {
           setStreamState({
             connectionState: "reconnecting",
             freshnessTimestamp: new Date().toISOString(),
-            degraded: Boolean(data?.healthSummary.degraded),
+            degraded: degradedRef.current,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         }
       }
     );
 
     return disconnect;
-  }, [data?.healthSummary.degraded, refetch, timezone.mode]);
+  }, [degradedRef, refetchRef, timezone.mode]);
 
   const effectiveStreamState = useMemo<StreamStatusEvent["payload"]>(
     () =>

@@ -34,6 +34,10 @@ test.describe("lifecycle detail route parity", () => {
     await expect(page.getByText("Trade summary")).toBeVisible();
     await expect(page.locator("strong").filter({ hasText: "publisher-order-1" })).toBeVisible();
     await expect(page.getByText("Raw payloads")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open in publisher dashboard" })).toHaveAttribute(
+      "href",
+      /dashboard\/index\.html\?orderId=publisher-order-1&correlationId=corr-btc-1#outcomes/
+    );
 
     await page.getByRole("link", { name: "Back to trades" }).click();
     await expect(page).toHaveURL(/\/trades\?timezone=local/);

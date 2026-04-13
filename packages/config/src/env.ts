@@ -45,6 +45,7 @@ export const envSchema = z
     INGEST_ENABLE_EXECUTOR_COLLECTOR: booleanish.default(true),
     INGEST_ENABLE_RABBITMQ_MANAGEMENT_COLLECTOR: booleanish.default(true),
     INGEST_ENABLE_RABBITMQ_CONSUMERS: booleanish.default(true),
+    INGEST_ENABLE_SMOKE_HEARTBEAT_REFRESH: booleanish.default(false),
     OTEL_SERVICE_NAME: nonEmptyString.default("kalshi-quant-dashboard"),
     LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info")
   })

@@ -25,7 +25,19 @@ export function TradeDetailPanel(props: {
             <strong>{props.detail.summary.tradeAttemptKey}</strong>
             <div className="muted">{props.detail.summary.marketTicker}</div>
           </div>
-          <TimelineLatencyBadge timestamp={props.detail.summary.latestSeenAt} />
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            {props.detail.publisherDashboardLink ? (
+              <a
+                className="linkish"
+                href={props.detail.publisherDashboardLink}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open in publisher dashboard
+              </a>
+            ) : null}
+            <TimelineLatencyBadge timestamp={props.detail.summary.latestSeenAt} />
+          </div>
         </div>
         <div className="session-meta">
           <span>Correlation: {props.detail.summary.correlationId}</span>

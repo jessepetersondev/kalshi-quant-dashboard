@@ -80,7 +80,10 @@ describe.sequential("skip-only diagnostics and pnl reconciliation", () => {
     const stream = await app.inject({
       method: "GET",
       url: "/api/live/stream?channels=skips",
-      headers: { "x-dashboard-user": "operator@example.internal" }
+      headers: {
+        "x-dashboard-user": "operator@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
+      }
     });
 
     expect(stream.statusCode).toBe(200);

@@ -12,6 +12,7 @@ import { DataTableShell } from "../components/table/DataTableShell.js";
 import { createExportHref } from "../features/exports/exportClient.js";
 import { connectStream } from "../features/live/streamClient.js";
 import { resolveStreamStatus } from "../features/live/streamStatus.js";
+import { useLatestRef } from "../features/live/useLatestRef.js";
 import { useGetAlertListQuery } from "../features/alerts/alertsApi.js";
 import { buildAlertDrawerSearch } from "../features/router/alertNavigation.js";
 import { useLifecycleQueryState } from "../features/router/queryState.js";
@@ -28,6 +29,7 @@ export function AlertsPage() {
     timezone: state.timezone,
     detailLevel: "standard"
   });
+  const refetchRef = useLatestRef(refetch);
 
   useEffect(() => {
     const disconnect = connectStream(
@@ -38,7 +40,7 @@ export function AlertsPage() {
       },
       {
         onAlertUpsert() {
-          void refetch();
+          void refetchRef.current();
         },
         onStatus(event) {
           setStreamState(event.payload);
@@ -50,7 +52,7 @@ export function AlertsPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         },
         onResyncRequired() {
           setStreamState({
@@ -59,7 +61,7 @@ export function AlertsPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         },
         onError() {
           setStreamState({
@@ -68,13 +70,13 @@ export function AlertsPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         }
       }
     );
 
     return disconnect;
-  }, [refetch, state.timezone]);
+  }, [refetchRef, state.timezone]);
 
   const effectiveStreamStatus = useMemo(
     () =>

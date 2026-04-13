@@ -5,9 +5,9 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import type { SessionResponse } from "@kalshi-quant-dashboard/contracts";
 import { Card, Pill } from "@kalshi-quant-dashboard/ui";
 
-import { useTimezoneQueryState } from "../features/router/queryState.js";
 import { AdminNav } from "../components/nav/AdminNav.js";
 import { ScreenReaderStatus } from "../components/state/ScreenReaderStatus.js";
+import { DISPLAY_TIMEZONE_LABEL } from "../features/format/dateTime.js";
 
 interface AppShellProps {
   readonly session: SessionResponse;
@@ -29,7 +29,6 @@ const navigationItems = [
 export function AppShell({ session, children }: AppShellProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const timezone = useTimezoneQueryState();
   const pageTitle =
     navigationItems.find((item) => location.pathname.startsWith(item.to))?.label ?? "Dashboard";
 
@@ -80,29 +79,14 @@ export function AppShell({ session, children }: AppShellProps) {
         <AdminNav session={session} />
       </aside>
       <main className="main-shell" id="main-content" tabIndex={-1}>
-        <ScreenReaderStatus pageTitle={pageTitle} timezoneMode={timezone.mode} />
+        <ScreenReaderStatus pageTitle={pageTitle} />
         <header className="topbar">
           <div>
             <p className="eyebrow">Authenticated Surface</p>
             <h2>{pageTitle}</h2>
           </div>
           <div className="topbar-actions">
-            <div className="timezone-toggle" role="group" aria-label="Timezone mode">
-              <button
-                className={timezone.mode === "utc" ? "active" : ""}
-                onClick={() => timezone.setMode("utc")}
-                type="button"
-              >
-                UTC
-              </button>
-              <button
-                className={timezone.mode === "local" ? "active" : ""}
-                onClick={() => timezone.setMode("local")}
-                type="button"
-              >
-                Local
-              </button>
-            </div>
+            <Pill tone="neutral">{DISPLAY_TIMEZONE_LABEL}</Pill>
             <button
               className="secondary-button"
               onClick={() => {

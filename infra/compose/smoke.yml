@@ -37,7 +37,7 @@ services:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/kalshi_quant_dashboard
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       RABBITMQ_MANAGEMENT_URL: http://guest:guest@rabbitmq:15672/api
-      PUBLISHER_BASE_URL: http://publisher.invalid
+      PUBLISHER_BASE_URL: ${PUBLISHER_BASE_URL:-http://127.0.0.1:5126}
       EXECUTOR_BASE_URL: http://executor.invalid
       STRATEGY_BTC_BASE_URL: http://btc.invalid
       STRATEGY_ETH_BASE_URL: http://eth.invalid
@@ -74,7 +74,7 @@ services:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/kalshi_quant_dashboard
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       RABBITMQ_MANAGEMENT_URL: http://guest:guest@rabbitmq:15672/api
-      PUBLISHER_BASE_URL: http://publisher.invalid
+      PUBLISHER_BASE_URL: ${PUBLISHER_BASE_URL:-http://127.0.0.1:5126}
       EXECUTOR_BASE_URL: http://executor.invalid
       STRATEGY_BTC_BASE_URL: http://btc.invalid
       STRATEGY_ETH_BASE_URL: http://eth.invalid
@@ -86,6 +86,7 @@ services:
       INGEST_ENABLE_EXECUTOR_COLLECTOR: "false"
       INGEST_ENABLE_RABBITMQ_MANAGEMENT_COLLECTOR: "false"
       INGEST_ENABLE_RABBITMQ_CONSUMERS: "false"
+      INGEST_ENABLE_SMOKE_HEARTBEAT_REFRESH: "true"
     healthcheck:
       test:
         [

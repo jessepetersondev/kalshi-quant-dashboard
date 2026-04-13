@@ -14,6 +14,7 @@ import { DataTableShell } from "../components/table/DataTableShell.js";
 import { createExportHref } from "../features/exports/exportClient.js";
 import { createPauseBuffer } from "../features/live/pauseBuffer.js";
 import { connectStream } from "../features/live/streamClient.js";
+import { useLatestRef } from "../features/live/useLatestRef.js";
 import { useLifecycleQueryState } from "../features/router/queryState.js";
 import { useGetSessionQuery } from "../features/session/sessionApi.js";
 import { useGetDecisionListQuery } from "../features/decisions/decisionsApi.js";
@@ -63,6 +64,15 @@ export function DecisionsPage() {
       state.lifecycleStage?.length ||
       state.page > 1
   );
+  const refetchRef = useLatestRef(refetch);
+  const hasPinnedQueryRef = useLatestRef(hasPinnedQuery);
+  const sortRef = useLatestRef(state.sort);
+  const pageSizeRef = useLatestRef(state.pageSize);
+  const strategyKey = state.strategy?.join(",") ?? "";
+  const strategyFilter = useMemo(
+    () => (strategyKey ? strategyKey.split(",") : undefined),
+    [strategyKey]
+  );
 
   useEffect(() => {
     if (data) {
@@ -76,7 +86,7 @@ export function DecisionsPage() {
         channels: ["decisions"],
         timezone: state.timezone,
         detailLevel: "standard",
-        ...(state.strategy?.length ? { strategy: state.strategy } : {})
+        ...(strategyFilter ? { strategy: strategyFilter } : {})
       },
       {
         onDecisionUpsert(event) {
@@ -86,13 +96,18 @@ export function DecisionsPage() {
             return;
           }
 
-          if (hasPinnedQuery) {
-            void refetch();
+          if (hasPinnedQueryRef.current) {
+            void refetchRef.current();
             return;
           }
 
           setRows((current) =>
-            upsertDecisionRow(current, event.payload.row, state.sort, state.pageSize)
+            upsertDecisionRow(
+              current,
+              event.payload.row,
+              sortRef.current,
+              pageSizeRef.current
+            )
           );
         },
         onStatus(event) {
@@ -105,7 +120,7 @@ export function DecisionsPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         },
         onResyncRequired() {
           setStreamState({
@@ -114,7 +129,7 @@ export function DecisionsPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         },
         onError() {
           setStreamState({
@@ -123,13 +138,13 @@ export function DecisionsPage() {
             degraded: false,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         }
       }
     );
 
     return disconnect;
-  }, [hasPinnedQuery, refetch, state.pageSize, state.sort, state.strategy, state.timezone]);
+  }, [hasPinnedQueryRef, pageSizeRef, refetchRef, sortRef, state.timezone, strategyFilter]);
 
   const effectiveStreamState = streamState ?? {
     connectionState: paused ? "paused" : "connected",

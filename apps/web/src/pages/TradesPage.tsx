@@ -14,6 +14,7 @@ import { DataTableShell } from "../components/table/DataTableShell.js";
 import { createExportHref } from "../features/exports/exportClient.js";
 import { createPauseBuffer } from "../features/live/pauseBuffer.js";
 import { connectStream } from "../features/live/streamClient.js";
+import { useLatestRef } from "../features/live/useLatestRef.js";
 import { useLifecycleQueryState } from "../features/router/queryState.js";
 import { useGetSessionQuery } from "../features/session/sessionApi.js";
 import { useGetTradeListQuery } from "../features/trades/tradesApi.js";
@@ -64,6 +65,15 @@ export function TradesPage() {
       state.lifecycleStage?.length ||
       state.page > 1
   );
+  const refetchRef = useLatestRef(refetch);
+  const hasPinnedQueryRef = useLatestRef(hasPinnedQuery);
+  const sortRef = useLatestRef(state.sort);
+  const pageSizeRef = useLatestRef(state.pageSize);
+  const strategyKey = state.strategy?.join(",") ?? "";
+  const strategyFilter = useMemo(
+    () => (strategyKey ? strategyKey.split(",") : undefined),
+    [strategyKey]
+  );
 
   useEffect(() => {
     if (data) {
@@ -77,7 +87,7 @@ export function TradesPage() {
         channels: ["trades"],
         timezone: state.timezone,
         detailLevel: "standard",
-        ...(state.strategy?.length ? { strategy: state.strategy } : {})
+        ...(strategyFilter ? { strategy: strategyFilter } : {})
       },
       {
         onTradeUpsert(event) {
@@ -87,13 +97,13 @@ export function TradesPage() {
             return;
           }
 
-          if (hasPinnedQuery) {
-            void refetch();
+          if (hasPinnedQueryRef.current) {
+            void refetchRef.current();
             return;
           }
 
           setRows((current) =>
-            upsertTradeRow(current, event.payload.row, state.sort, state.pageSize)
+            upsertTradeRow(current, event.payload.row, sortRef.current, pageSizeRef.current)
           );
         },
         onStatus(event) {
@@ -106,7 +116,7 @@ export function TradesPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         },
         onResyncRequired() {
           setStreamState({
@@ -115,7 +125,7 @@ export function TradesPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         },
         onError() {
           setStreamState({
@@ -124,13 +134,13 @@ export function TradesPage() {
             degraded: false,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         }
       }
     );
 
     return disconnect;
-  }, [hasPinnedQuery, refetch, state.pageSize, state.sort, state.strategy, state.timezone]);
+  }, [hasPinnedQueryRef, pageSizeRef, refetchRef, sortRef, state.timezone, strategyFilter]);
 
   const effectiveStreamState = streamState ?? {
     connectionState: paused ? "paused" : "connected",

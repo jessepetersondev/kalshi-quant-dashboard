@@ -160,14 +160,6 @@ select:focus-visible {
   align-items: center;
 }
 
-.timezone-toggle {
-  display: inline-flex;
-  border: 1px solid rgba(120, 153, 176, 0.28);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.timezone-toggle button,
 .secondary-button,
 .primary-button,
 .icon-button,
@@ -176,17 +168,6 @@ select:focus-visible {
   border-radius: 0.85rem;
   background: rgba(26, 43, 56, 0.92);
   color: #e7eef5;
-}
-
-.timezone-toggle button {
-  background: transparent;
-  color: #b7c8d9;
-  padding: 0.55rem 0.9rem;
-}
-
-.timezone-toggle button.active {
-  background: rgba(96, 170, 195, 0.22);
-  color: #fff;
 }
 
 .secondary-button,

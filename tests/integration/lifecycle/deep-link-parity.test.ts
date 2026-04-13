@@ -76,5 +76,8 @@ describe.sequential("lifecycle deep-link parity", () => {
 
     expect(decisionDetail.summary).toMatchObject(decisionList.items[0]!);
     expect(tradeDetail.summary).toMatchObject(tradeList.items[0]!);
+    expect(tradeDetail.publisherDashboardLink).toBe(
+      "http://localhost:5001/dashboard/index.html?orderId=publisher-order-1&correlationId=corr-btc-1#outcomes"
+    );
   });
 });

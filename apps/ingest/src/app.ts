@@ -4,6 +4,7 @@ import { createLogger } from "@kalshi-quant-dashboard/observability";
 import { CollectorRunner } from "./collectors/collector-runner.js";
 import { IngestHealthState } from "./health/ingest-health-state.js";
 import { buildMixedSourceRuntime } from "./runtime/build-mixed-source-runtime.js";
+import { SmokeHeartbeatRefresher } from "./runtime/smoke-heartbeat-refresher.js";
 import { SourceIngestService } from "./services/source-ingest-service.js";
 
 export interface IngestService {
@@ -19,8 +20,11 @@ export function createIngestService(): IngestService {
   const sourceIngestService = new SourceIngestService();
   const runtime = buildMixedSourceRuntime(sourceIngestService);
   const runner = new CollectorRunner(runtime.collectors);
+  const smokeHeartbeatRefresher = config.ingestRuntime.enableSmokeHeartbeatRefresh
+    ? new SmokeHeartbeatRefresher(sourceIngestService)
+    : null;
   const healthState = new IngestHealthState({
-    collectorsEnabled: runtime.collectors.length > 0,
+    collectorsEnabled: runtime.collectors.length > 0 || smokeHeartbeatRefresher !== null,
     consumersEnabled: runtime.consumers.length > 0
   });
   let interval: NodeJS.Timeout | undefined;
@@ -28,6 +32,9 @@ export function createIngestService(): IngestService {
   async function runCollectors() {
     try {
       await runner.runAll();
+      if (smokeHeartbeatRefresher) {
+        await smokeHeartbeatRefresher.refresh();
+      }
       healthState.markCollectorSuccess();
     } catch (error) {
       healthState.markCollectorFailure(error);

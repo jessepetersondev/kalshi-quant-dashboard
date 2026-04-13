@@ -63,7 +63,10 @@ describe.sequential("SSE capability enforcement", () => {
     const operator = await app.inject({
       method: "GET",
       url: "/api/live/stream?channels=overview&detailLevel=debug",
-      headers: { "x-dashboard-user": "operator@example.internal" }
+      headers: {
+        "x-dashboard-user": "operator@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
+      }
     });
 
     expect(operator.statusCode).toBe(403);
@@ -96,7 +99,10 @@ describe.sequential("SSE capability enforcement", () => {
     const developer = await app.inject({
       method: "GET",
       url: "/api/live/stream?channels=overview&detailLevel=debug",
-      headers: { "x-dashboard-user": "developer@example.internal" }
+      headers: {
+        "x-dashboard-user": "developer@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
+      }
     });
 
     expect(developer.statusCode).toBe(403);
@@ -135,7 +141,10 @@ describe.sequential("SSE capability enforcement", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/live/stream?channels=decisions,trades,skips,alerts,pnl&strategy=btc",
-      headers: { "x-dashboard-user": "developer@example.internal" }
+      headers: {
+        "x-dashboard-user": "developer@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
+      }
     });
 
     expect(response.statusCode).toBe(200);
@@ -213,17 +222,26 @@ describe.sequential("SSE capability enforcement", () => {
     const deniedStrategy = await app.inject({
       method: "GET",
       url: "/api/live/stream?channels=decisions&strategy=eth",
-      headers: { "x-dashboard-user": "developer@example.internal" }
+      headers: {
+        "x-dashboard-user": "developer@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
+      }
     });
     const deniedCompare = await app.inject({
       method: "GET",
       url: "/api/live/stream?channels=pnl&compare=btc,eth",
-      headers: { "x-dashboard-user": "developer@example.internal" }
+      headers: {
+        "x-dashboard-user": "developer@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
+      }
     });
     const allowedCompare = await app.inject({
       method: "GET",
       url: "/api/live/stream?channels=pnl&compare=btc",
-      headers: { "x-dashboard-user": "developer@example.internal" }
+      headers: {
+        "x-dashboard-user": "developer@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
+      }
     });
 
     expect(deniedStrategy.statusCode).toBe(403);

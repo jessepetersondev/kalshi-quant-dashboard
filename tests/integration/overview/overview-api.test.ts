@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import type { AddressInfo } from "node:net";
 
 import { query } from "@kalshi-quant-dashboard/db";
 import { sourceProfiles } from "@kalshi-quant-dashboard/source-adapters";
@@ -189,7 +190,8 @@ describe.sequential("overview api", () => {
       method: "GET",
       url: "/api/live/stream?channels=overview",
       headers: {
-        "x-dashboard-user": "operator@example.internal"
+        "x-dashboard-user": "operator@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
       }
     });
 
@@ -198,6 +200,56 @@ describe.sequential("overview api", () => {
     expect(streamResponse.body).toContain("event: stream.status");
     overviewSnapshotEventSchema.parse(extractEventPayload(streamResponse.body, "overview.snapshot"));
     streamStatusEventSchema.parse(extractEventPayload(streamResponse.body, "stream.status"));
+  });
+
+  test("keep the overview SSE connection open after the initial snapshot", async () => {
+    await seedOverviewFacts();
+
+    const liveApp = await buildApp();
+    await liveApp.listen({ host: "127.0.0.1", port: 0 });
+
+    const address = liveApp.server.address() as AddressInfo | null;
+    if (!address) {
+      throw new Error("Unable to resolve the live app address.");
+    }
+
+    const controller = new AbortController();
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:${address.port}/api/live/stream?channels=overview,decisions,trades&timezone=utc&detailLevel=standard`,
+        {
+          headers: {
+            cookie: "kqd_session=operator@example.internal"
+          },
+          signal: controller.signal
+        }
+      );
+
+      expect(response.ok).toBe(true);
+      const reader = response.body?.getReader();
+      expect(reader).toBeDefined();
+
+      const firstChunk = await reader!.read();
+      expect(firstChunk.done).toBe(false);
+      const firstText = new TextDecoder().decode(firstChunk.value);
+      expect(firstText).toContain("event: overview.snapshot");
+      expect(firstText).toContain("event: stream.status");
+
+      const pendingRead = reader!.read();
+      const secondReadState = await Promise.race([
+        pendingRead.then((result) => ({ type: "resolved" as const, result })),
+        new Promise<{ type: "timeout" }>((resolve) =>
+          setTimeout(() => resolve({ type: "timeout" }), 250)
+        )
+      ]);
+
+      expect(secondReadState.type).toBe("timeout");
+      await reader!.cancel();
+    } finally {
+      controller.abort();
+      await liveApp.close();
+    }
   });
 
   test("deny out-of-scope strategy detail and debug live subscriptions", async () => {
@@ -242,7 +294,8 @@ describe.sequential("overview api", () => {
       method: "GET",
       url: "/api/live/stream?channels=overview&detailLevel=debug",
       headers: {
-        "x-dashboard-user": "operator@example.internal"
+        "x-dashboard-user": "operator@example.internal",
+        "x-kqd-test-stream-mode": "snapshot"
       }
     });
 

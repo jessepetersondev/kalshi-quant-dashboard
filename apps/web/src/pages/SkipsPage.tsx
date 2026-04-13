@@ -16,6 +16,7 @@ import { formatTimestamp } from "../features/format/dateTime.js";
 import { createExportHref } from "../features/exports/exportClient.js";
 import { connectStream } from "../features/live/streamClient.js";
 import { resolveStreamStatus } from "../features/live/streamStatus.js";
+import { useLatestRef } from "../features/live/useLatestRef.js";
 import { useLifecycleQueryState } from "../features/router/queryState.js";
 import { useGetSessionQuery } from "../features/session/sessionApi.js";
 import { useGetSkipListQuery } from "../features/skips/skipsApi.js";
@@ -46,6 +47,12 @@ export function SkipsPage() {
     symbol: state.symbol,
     market: state.market
   });
+  const refetchRef = useLatestRef(refetch);
+  const strategyKey = state.strategy?.join(",") ?? "";
+  const strategyFilter = useMemo(
+    () => (strategyKey ? strategyKey.split(",") : undefined),
+    [strategyKey]
+  );
 
   useEffect(() => {
     const disconnect = connectStream(
@@ -53,11 +60,11 @@ export function SkipsPage() {
         channels: ["skips"],
         timezone: state.timezone,
         detailLevel: "standard",
-        ...(state.strategy?.length ? { strategy: state.strategy } : {})
+        ...(strategyFilter ? { strategy: strategyFilter } : {})
       },
       {
         onSkipUpsert() {
-          void refetch();
+          void refetchRef.current();
         },
         onGap() {
           setStreamState({
@@ -66,7 +73,7 @@ export function SkipsPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         },
         onResyncRequired() {
           setStreamState({
@@ -75,7 +82,7 @@ export function SkipsPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         },
         onError() {
           setStreamState({
@@ -84,13 +91,13 @@ export function SkipsPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void refetch();
+          void refetchRef.current();
         }
       }
     );
 
     return disconnect;
-  }, [refetch, state.strategy, state.timezone]);
+  }, [refetchRef, state.timezone, strategyFilter]);
 
   const effectiveStreamStatus = useMemo(
     () =>

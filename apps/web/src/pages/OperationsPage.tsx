@@ -13,6 +13,7 @@ import { ErrorState } from "../components/state/ErrorState.js";
 import { LoadingState } from "../components/state/LoadingState.js";
 import { connectStream } from "../features/live/streamClient.js";
 import { resolveStreamStatus } from "../features/live/streamStatus.js";
+import { useLatestRef } from "../features/live/useLatestRef.js";
 import { useGetAlertListQuery } from "../features/alerts/alertsApi.js";
 import { useGetOperationsSnapshotQuery } from "../features/operations/operationsApi.js";
 import { useTimezoneQueryState } from "../features/router/queryState.js";
@@ -45,6 +46,8 @@ export function OperationsPage() {
     detailLevel: "standard",
     status: ["open", "acknowledged"]
   });
+  const operationsRefetchRef = useLatestRef(operations.refetch);
+  const alertsRefetchRef = useLatestRef(alerts.refetch);
 
   useEffect(() => {
     const disconnect = connectStream(
@@ -55,11 +58,11 @@ export function OperationsPage() {
       },
       {
         onQueueMetricUpsert() {
-          void operations.refetch();
+          void operationsRefetchRef.current();
         },
         onAlertUpsert() {
-          void operations.refetch();
-          void alerts.refetch();
+          void operationsRefetchRef.current();
+          void alertsRefetchRef.current();
         },
         onStatus(event) {
           setStreamState(event.payload);
@@ -71,8 +74,8 @@ export function OperationsPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void operations.refetch();
-          void alerts.refetch();
+          void operationsRefetchRef.current();
+          void alertsRefetchRef.current();
         },
         onResyncRequired() {
           setStreamState({
@@ -81,8 +84,8 @@ export function OperationsPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void operations.refetch();
-          void alerts.refetch();
+          void operationsRefetchRef.current();
+          void alertsRefetchRef.current();
         },
         onError() {
           setStreamState({
@@ -91,14 +94,14 @@ export function OperationsPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void operations.refetch();
-          void alerts.refetch();
+          void operationsRefetchRef.current();
+          void alertsRefetchRef.current();
         }
       }
     );
 
     return disconnect;
-  }, [alerts, operations, timezone.mode]);
+  }, [alertsRefetchRef, operationsRefetchRef, timezone.mode]);
 
   const effectiveStreamStatus = useMemo(
     () =>

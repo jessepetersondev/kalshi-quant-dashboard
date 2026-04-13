@@ -49,6 +49,7 @@ export const tradeDetailResponseSchema = z.object({
   summary: tradeRowSchema,
   timeline: z.array(eventTimelineItemSchema),
   fills: z.array(fillRowSchema),
+  publisherDashboardLink: z.string().url().optional(),
   rawPayloadAvailable: z.boolean(),
   rawPayloads: z.array(rawPayloadEntrySchema).optional(),
   debugMetadata: jsonRecordSchema.nullable().optional()

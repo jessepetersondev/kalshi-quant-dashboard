@@ -10,6 +10,12 @@ COPY packages ./packages
 COPY scripts ./scripts
 
 RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @kalshi-quant-dashboard/auth build \
+  && pnpm --filter @kalshi-quant-dashboard/config build \
+  && pnpm --filter @kalshi-quant-dashboard/contracts build \
+  && pnpm --filter @kalshi-quant-dashboard/db build \
+  && pnpm --filter @kalshi-quant-dashboard/observability build \
+  && pnpm --filter @kalshi-quant-dashboard/source-adapters build
 
 EXPOSE 3002
 

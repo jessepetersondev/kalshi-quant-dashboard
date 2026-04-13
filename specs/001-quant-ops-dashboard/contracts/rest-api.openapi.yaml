@@ -1195,6 +1195,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FillRow'
+        publisherDashboardLink:
+          type: string
+          format: uri
         rawPayloadAvailable:
           type: boolean
         rawPayloads:

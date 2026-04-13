@@ -41,6 +41,9 @@ import {
   projectTradeStreamChanges
 } from "../../../ingest/src/projections/trade-attempt-projector.js";
 
+const SSE_HEARTBEAT_INTERVAL_MS = 15_000;
+const SSE_POLL_INTERVAL_MS = 1_000;
+
 function normalizeArrayQuery(value: unknown): string[] | undefined {
   if (typeof value === "string" && value.length > 0) {
     return value.split(",").map((entry) => entry.trim()).filter(Boolean);
@@ -259,6 +262,7 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
       );
     }
     const session = requireSessionContext(request).session;
+    const snapshotMode = request.headers["x-kqd-test-stream-mode"] === "snapshot";
     const requestedStrategyIds = normalizeRequestedStrategies({
       strategy: parsedRequest.strategy,
       compare: parsedRequest.compare
@@ -267,11 +271,8 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
       requestedStrategyIds && requestedStrategyIds.length > 0
         ? requestedStrategyIds
         : session.effectiveCapability.strategyScope;
-    const emittedAt = new Date().toISOString();
-    const projectionChangeId = await overviewService.getLatestProjectionChangeId();
     const lastEventId = Number(request.headers["last-event-id"] ?? "0");
     const afterProjectionChangeId = Number.isFinite(lastEventId) ? lastEventId : 0;
-    const eventBlocks: string[] = [];
     const projectionWindow = await readProjectionWindow(authorization.filteredChannels);
 
     if (
@@ -279,6 +280,7 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
       projectionWindow.earliestProjectionChangeId > 0 &&
       afterProjectionChangeId < projectionWindow.earliestProjectionChangeId - 1
     ) {
+      const emittedAt = new Date().toISOString();
       const event = streamResyncRequiredEventSchema.parse({
         ...baseStreamEnvelope({
           projectionChangeId:
@@ -302,242 +304,321 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
       return `retry: 250\n\nevent: stream.resync_required\nid: ${event.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`;
     }
 
-    const gapEvents = await readGapEvents({
-      strategyScope: streamStrategyScope,
-      filteredChannels: authorization.filteredChannels,
-      detailLevel: authorization.detailLevel,
-      emittedAt,
-      projectionChangeId
-    });
-    for (const gapEvent of gapEvents) {
-      eventBlocks.push(
-        `event: stream.gap\nid: ${gapEvent.projectionChangeId}\ndata: ${JSON.stringify(gapEvent)}\n\n`
-      );
-    }
+    async function buildEventBlocks(cursor: number) {
+      const emittedAt = new Date().toISOString();
+      const latestProjectionChangeId = await overviewService.getLatestProjectionChangeId();
+      const eventBlocks: string[] = [];
 
-    if (authorization.filteredChannels.includes("overview")) {
-      const overview = await overviewService.getOverview({
-        strategyScope: streamStrategyScope
-      });
-      const snapshotEnvelope = overviewSnapshotEventSchema.parse({
-        projectionChangeId,
-        channel: "overview",
-        kind: "snapshot",
+      const gapEvents = await readGapEvents({
+        strategyScope: streamStrategyScope,
+        filteredChannels: authorization.filteredChannels,
         detailLevel: authorization.detailLevel,
         emittedAt,
-        effectiveOccurredAt: overview.healthSummary.freshnessTimestamp,
-        payload: overview
+        projectionChangeId: latestProjectionChangeId
       });
-      eventBlocks.push(
-        `event: overview.snapshot\nid: ${projectionChangeId}\ndata: ${JSON.stringify(snapshotEnvelope)}\n\n`
-      );
-
-      const statusEnvelope = streamStatusEventSchema.parse({
-        projectionChangeId,
-        channel: "overview",
-        kind: "status",
-        detailLevel: authorization.detailLevel,
-        emittedAt,
-        effectiveOccurredAt: overview.healthSummary.freshnessTimestamp,
-        payload: {
-          connectionState: overview.healthSummary.degraded ? "degraded" : "connected",
-          freshnessTimestamp: overview.healthSummary.freshnessTimestamp,
-          degraded: overview.healthSummary.degraded,
-          reconciliationPending: false
-        }
-      });
-      eventBlocks.push(
-        `event: stream.status\nid: ${projectionChangeId}\ndata: ${JSON.stringify(statusEnvelope)}\n\n`
-      );
-    }
-
-    if (authorization.filteredChannels.includes("decisions")) {
-      const decisionChanges = await projectDecisionStreamChanges({
-        afterProjectionChangeId,
-        strategyScope: streamStrategyScope
-      });
-
-      for (const change of decisionChanges) {
-        const event = decisionUpsertEventSchema.parse({
-          projectionChangeId: change.projectionChangeId,
-          channel: "decisions",
-          kind: "upsert",
-          detailLevel: authorization.detailLevel,
-          emittedAt,
-          effectiveOccurredAt: change.effectiveOccurredAt,
-          payload: {
-            correlationId: change.row.correlationId,
-            row: change.row,
-            debug:
-              authorization.detailLevel === "debug"
-                ? await decisionService.getDetail({
-                    correlationId: change.row.correlationId,
-                    effectiveCapability: session.effectiveCapability,
-                    detailLevel: "debug"
-                  }).then((detail) => detail?.debugMetadata)
-                : undefined
-          }
-        });
-
+      for (const gapEvent of gapEvents) {
         eventBlocks.push(
-          `event: decision.upsert\nid: ${change.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`
+          `event: stream.gap\nid: ${gapEvent.projectionChangeId}\ndata: ${JSON.stringify(gapEvent)}\n\n`
         );
       }
-    }
 
-    if (authorization.filteredChannels.includes("trades")) {
-      const tradeChanges = await projectTradeStreamChanges({
-        afterProjectionChangeId,
-        strategyScope: streamStrategyScope
-      });
-
-      for (const change of tradeChanges) {
-        const event = tradeUpsertEventSchema.parse({
-          projectionChangeId: change.projectionChangeId,
-          channel: "trades",
-          kind: "upsert",
+      if (authorization.filteredChannels.includes("overview")) {
+        const overview = await overviewService.getOverview({
+          strategyScope: streamStrategyScope
+        });
+        const snapshotEnvelope = overviewSnapshotEventSchema.parse({
+          projectionChangeId: latestProjectionChangeId,
+          channel: "overview",
+          kind: "snapshot",
           detailLevel: authorization.detailLevel,
           emittedAt,
-          effectiveOccurredAt: change.effectiveOccurredAt,
+          effectiveOccurredAt: overview.healthSummary.freshnessTimestamp,
+          payload: overview
+        });
+        eventBlocks.push(
+          `event: overview.snapshot\nid: ${latestProjectionChangeId}\ndata: ${JSON.stringify(snapshotEnvelope)}\n\n`
+        );
+
+        const statusEnvelope = streamStatusEventSchema.parse({
+          projectionChangeId: latestProjectionChangeId,
+          channel: "overview",
+          kind: "status",
+          detailLevel: authorization.detailLevel,
+          emittedAt,
+          effectiveOccurredAt: overview.healthSummary.freshnessTimestamp,
           payload: {
-            correlationId: change.row.correlationId,
-            row: change.row,
-            debug:
-              authorization.detailLevel === "debug"
-                ? await tradeService.getDetail({
-                    correlationId: change.row.correlationId,
-                    effectiveCapability: session.effectiveCapability,
-                    detailLevel: "debug"
-                  }).then((detail) => detail?.debugMetadata)
-                : undefined
+            connectionState: overview.healthSummary.degraded ? "degraded" : "connected",
+            freshnessTimestamp: overview.healthSummary.freshnessTimestamp,
+            degraded: overview.healthSummary.degraded,
+            reconciliationPending: false
           }
         });
-
         eventBlocks.push(
-          `event: trade.upsert\nid: ${change.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`
+          `event: stream.status\nid: ${latestProjectionChangeId}\ndata: ${JSON.stringify(statusEnvelope)}\n\n`
         );
       }
-    }
 
-    if (authorization.filteredChannels.includes("skips")) {
-      const skipChanges = await projectSkipStreamChanges({
-        afterProjectionChangeId,
-        strategyScope: streamStrategyScope
-      });
+      if (authorization.filteredChannels.includes("decisions")) {
+        const decisionChanges = await projectDecisionStreamChanges({
+          afterProjectionChangeId: cursor,
+          strategyScope: streamStrategyScope
+        });
 
-      for (const change of skipChanges) {
-        const event = skipUpsertEventSchema.parse({
-          ...baseStreamEnvelope({
+        for (const change of decisionChanges) {
+          const event = decisionUpsertEventSchema.parse({
             projectionChangeId: change.projectionChangeId,
+            channel: "decisions",
+            kind: "upsert",
             detailLevel: authorization.detailLevel,
             emittedAt,
-            effectiveOccurredAt: change.effectiveOccurredAt
-          }),
-          channel: "skips",
-          kind: "upsert",
-          payload: {
-            correlationId: change.row.correlationId,
-            row: change.row
-          }
+            effectiveOccurredAt: change.effectiveOccurredAt,
+            payload: {
+              correlationId: change.row.correlationId,
+              row: change.row,
+              debug:
+                authorization.detailLevel === "debug"
+                  ? await decisionService.getDetail({
+                      correlationId: change.row.correlationId,
+                      effectiveCapability: session.effectiveCapability,
+                      detailLevel: "debug"
+                    }).then((detail) => detail?.debugMetadata)
+                  : undefined
+            }
+          });
+
+          eventBlocks.push(
+            `event: decision.upsert\nid: ${change.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`
+          );
+        }
+      }
+
+      if (authorization.filteredChannels.includes("trades")) {
+        const tradeChanges = await projectTradeStreamChanges({
+          afterProjectionChangeId: cursor,
+          strategyScope: streamStrategyScope
         });
 
-        eventBlocks.push(
-          `event: skip.upsert\nid: ${change.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`
-        );
+        for (const change of tradeChanges) {
+          const event = tradeUpsertEventSchema.parse({
+            projectionChangeId: change.projectionChangeId,
+            channel: "trades",
+            kind: "upsert",
+            detailLevel: authorization.detailLevel,
+            emittedAt,
+            effectiveOccurredAt: change.effectiveOccurredAt,
+            payload: {
+              correlationId: change.row.correlationId,
+              row: change.row,
+              debug:
+                authorization.detailLevel === "debug"
+                  ? await tradeService.getDetail({
+                      correlationId: change.row.correlationId,
+                      effectiveCapability: session.effectiveCapability,
+                      detailLevel: "debug"
+                    }).then((detail) => detail?.debugMetadata)
+                  : undefined
+            }
+          });
+
+          eventBlocks.push(
+            `event: trade.upsert\nid: ${change.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`
+          );
+        }
       }
-    }
 
-    if (authorization.filteredChannels.includes("pnl")) {
-      const pnlChanges = await projectPnlStreamChanges({
-        afterProjectionChangeId,
-        strategyScope: streamStrategyScope
-      });
-
-      for (const change of pnlChanges) {
-        const event = pnlUpsertEventSchema.parse({
-          projectionChangeId: change.projectionChangeId,
-          channel: "pnl",
-          kind: "upsert",
-          detailLevel: authorization.detailLevel,
-          emittedAt,
-          effectiveOccurredAt: change.effectiveOccurredAt,
-          payload: {
-            scopeType: change.scopeType,
-            scopeKey: change.scopeKey,
-            bucketType: change.bucketType,
-            summary: change.summary
-          }
+      if (authorization.filteredChannels.includes("skips")) {
+        const skipChanges = await projectSkipStreamChanges({
+          afterProjectionChangeId: cursor,
+          strategyScope: streamStrategyScope
         });
 
-        eventBlocks.push(
-          `event: pnl.upsert\nid: ${change.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`
-        );
+        for (const change of skipChanges) {
+          const event = skipUpsertEventSchema.parse({
+            ...baseStreamEnvelope({
+              projectionChangeId: change.projectionChangeId,
+              detailLevel: authorization.detailLevel,
+              emittedAt,
+              effectiveOccurredAt: change.effectiveOccurredAt
+            }),
+            channel: "skips",
+            kind: "upsert",
+            payload: {
+              correlationId: change.row.correlationId,
+              row: change.row
+            }
+          });
+
+          eventBlocks.push(
+            `event: skip.upsert\nid: ${change.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`
+          );
+        }
       }
-    }
 
-    if (authorization.filteredChannels.includes("operations")) {
-      const queueChanges = await projectQueueMetricStreamChanges({
-        afterProjectionChangeId
-      });
-
-      for (const change of queueChanges) {
-        const event = queueMetricUpsertEventSchema.parse({
-          projectionChangeId: change.projectionChangeId,
-          channel: "operations",
-          kind: "upsert",
-          detailLevel: authorization.detailLevel,
-          emittedAt,
-          effectiveOccurredAt: change.effectiveOccurredAt,
-          payload: {
-            queueName: change.queueName,
-            row: change.row
-          }
+      if (authorization.filteredChannels.includes("pnl")) {
+        const pnlChanges = await projectPnlStreamChanges({
+          afterProjectionChangeId: cursor,
+          strategyScope: streamStrategyScope
         });
 
-        eventBlocks.push(
-          `event: queue_metric.upsert\nid: ${change.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`
-        );
+        for (const change of pnlChanges) {
+          const event = pnlUpsertEventSchema.parse({
+            projectionChangeId: change.projectionChangeId,
+            channel: "pnl",
+            kind: "upsert",
+            detailLevel: authorization.detailLevel,
+            emittedAt,
+            effectiveOccurredAt: change.effectiveOccurredAt,
+            payload: {
+              scopeType: change.scopeType,
+              scopeKey: change.scopeKey,
+              bucketType: change.bucketType,
+              summary: change.summary
+            }
+          });
+
+          eventBlocks.push(
+            `event: pnl.upsert\nid: ${change.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`
+          );
+        }
       }
-    }
 
-    if (authorization.filteredChannels.includes("alerts")) {
-      const alertChanges = await projectAlertStreamChanges({
-        afterProjectionChangeId,
-        strategyScope: streamStrategyScope,
-        ...(requestedStrategyIds ? { requestedStrategyIds } : {})
-      });
-
-      for (const change of alertChanges) {
-        const event = alertUpsertEventSchema.parse({
-          projectionChangeId: change.projectionChangeId,
-          channel: "alerts",
-          kind: "upsert",
-          detailLevel: authorization.detailLevel,
-          emittedAt,
-          effectiveOccurredAt: change.effectiveOccurredAt,
-          payload: {
-            alertId: change.alertId,
-            row: change.row,
-            debug:
-              authorization.detailLevel === "debug"
-                ? await alertService.getDetail({
-                    alertId: change.alertId,
-                    effectiveCapability: session.effectiveCapability,
-                    detailLevel: "debug"
-                  }).then((detail) => detail?.summary.metadata)
-                : undefined
-          }
+      if (authorization.filteredChannels.includes("operations")) {
+        const queueChanges = await projectQueueMetricStreamChanges({
+          afterProjectionChangeId: cursor
         });
 
-        eventBlocks.push(
-          `event: alert.upsert\nid: ${change.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`
-        );
+        for (const change of queueChanges) {
+          const event = queueMetricUpsertEventSchema.parse({
+            projectionChangeId: change.projectionChangeId,
+            channel: "operations",
+            kind: "upsert",
+            detailLevel: authorization.detailLevel,
+            emittedAt,
+            effectiveOccurredAt: change.effectiveOccurredAt,
+            payload: {
+              queueName: change.queueName,
+              row: change.row
+            }
+          });
+
+          eventBlocks.push(
+            `event: queue_metric.upsert\nid: ${change.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`
+          );
+        }
       }
+
+      if (authorization.filteredChannels.includes("alerts")) {
+        const alertChanges = await projectAlertStreamChanges({
+          afterProjectionChangeId: cursor,
+          strategyScope: streamStrategyScope,
+          ...(requestedStrategyIds ? { requestedStrategyIds } : {})
+        });
+
+        for (const change of alertChanges) {
+          const event = alertUpsertEventSchema.parse({
+            projectionChangeId: change.projectionChangeId,
+            channel: "alerts",
+            kind: "upsert",
+            detailLevel: authorization.detailLevel,
+            emittedAt,
+            effectiveOccurredAt: change.effectiveOccurredAt,
+            payload: {
+              alertId: change.alertId,
+              row: change.row,
+              debug:
+                authorization.detailLevel === "debug"
+                  ? await alertService.getDetail({
+                      alertId: change.alertId,
+                      effectiveCapability: session.effectiveCapability,
+                      detailLevel: "debug"
+                    }).then((detail) => detail?.summary.metadata)
+                  : undefined
+            }
+          });
+
+          eventBlocks.push(
+            `event: alert.upsert\nid: ${change.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`
+          );
+        }
+      }
+
+      return {
+        latestProjectionChangeId,
+        eventBlocks
+      };
     }
 
-    reply.header("cache-control", "no-cache");
-    reply.header("connection", "keep-alive");
-    reply.type("text/event-stream; charset=utf-8");
-    return `retry: 250\n\n${eventBlocks.join("")}`;
+    const initialEmission = await buildEventBlocks(afterProjectionChangeId);
+
+    if (snapshotMode) {
+      reply.header("cache-control", "no-cache");
+      reply.header("connection", "keep-alive");
+      reply.type("text/event-stream; charset=utf-8");
+      return `retry: 250\n\n${initialEmission.eventBlocks.join("")}`;
+    }
+
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      "cache-control": "no-cache",
+      connection: "keep-alive",
+      "content-type": "text/event-stream; charset=utf-8"
+    });
+    reply.raw.write(`retry: 250\n\n${initialEmission.eventBlocks.join("")}`);
+
+    let currentProjectionChangeId = Math.max(
+      afterProjectionChangeId,
+      initialEmission.latestProjectionChangeId
+    );
+    let closed = false;
+    let pollInFlight = false;
+
+    const cleanup = () => {
+      if (closed) {
+        return;
+      }
+      closed = true;
+      clearInterval(heartbeatTimer);
+      clearInterval(pollTimer);
+    };
+
+    const heartbeatTimer = setInterval(() => {
+      if (!closed) {
+        reply.raw.write(`: keepalive ${Date.now()}\n\n`);
+      }
+    }, SSE_HEARTBEAT_INTERVAL_MS);
+
+    const pollTimer = setInterval(() => {
+      if (closed || pollInFlight) {
+        return;
+      }
+
+      pollInFlight = true;
+      void (async () => {
+        try {
+          const latestProjectionChangeId = await overviewService.getLatestProjectionChangeId();
+          if (latestProjectionChangeId <= currentProjectionChangeId) {
+            return;
+          }
+
+          const emission = await buildEventBlocks(currentProjectionChangeId);
+          if (emission.eventBlocks.length > 0) {
+            reply.raw.write(emission.eventBlocks.join(""));
+          }
+          currentProjectionChangeId = Math.max(
+            currentProjectionChangeId,
+            emission.latestProjectionChangeId
+          );
+        } catch (error) {
+          app.log.error({ err: error }, "Live stream poll failed.");
+          cleanup();
+          reply.raw.destroy(error as Error);
+        } finally {
+          pollInFlight = false;
+        }
+      })();
+    }, SSE_POLL_INTERVAL_MS);
+
+    request.raw.on("close", cleanup);
+    reply.raw.on("close", cleanup);
   });
 }

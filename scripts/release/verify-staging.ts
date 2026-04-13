@@ -28,6 +28,44 @@ async function assertOk(
   return response;
 }
 
+async function readSsePreview(args: {
+  readonly url: string;
+  readonly headers?: HeadersInit;
+}): Promise<{ readonly firstChunk: string; readonly lastEventId: string | null }> {
+  const controller = new AbortController();
+  const response = await assertOk(args.url, {
+    headers: args.headers,
+    signal: controller.signal
+  });
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error(`SSE response for ${args.url} did not expose a readable body.`);
+  }
+
+  try {
+    const firstChunk = await reader.read();
+    if (firstChunk.done || !firstChunk.value) {
+      throw new Error(`SSE response for ${args.url} closed before emitting a first event chunk.`);
+    }
+
+    const text = new TextDecoder().decode(firstChunk.value);
+    const lastEventId =
+      text
+        .split("\n")
+        .find((line) => line.startsWith("id: "))
+        ?.replace("id: ", "")
+        .trim() ?? null;
+
+    return {
+      firstChunk: text,
+      lastEventId
+    };
+  } finally {
+    await reader.cancel();
+    controller.abort();
+  }
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const operatorHeaders = {
@@ -57,8 +95,32 @@ async function main(): Promise<void> {
     headers: operatorHeaders
   });
   const overview = (await overviewResponse.json()) as {
+    healthSummary: { readonly degraded: boolean };
     recentAlerts: readonly { readonly alertId: string }[];
   };
+  if (overview.healthSummary.degraded) {
+    throw new Error("Overview should be healthy in the default smoke deployment.");
+  }
+
+  const strategiesResponse = await assertOk(`${args.baseUrl}/api/strategies`, {
+    headers: operatorHeaders
+  });
+  const strategies = (await strategiesResponse.json()) as {
+    items: readonly {
+      readonly strategyId: string;
+      readonly healthStatus: string;
+    }[];
+  };
+  const degradedStrategies = strategies.items.filter(
+    (item) => item.healthStatus === "degraded"
+  );
+  if (degradedStrategies.length > 0) {
+    throw new Error(
+      `Strategy list should be healthy in the default smoke deployment. Degraded: ${degradedStrategies
+        .map((item) => item.strategyId)
+        .join(", ")}`
+    );
+  }
   const alertId = overview.recentAlerts[0]?.alertId;
   if (!alertId) {
     throw new Error("Overview response did not contain a seeded alert.");
@@ -79,33 +141,27 @@ async function main(): Promise<void> {
     throw new Error("Alert-rule defaults were not loaded.");
   }
 
-  const sseResponse = await assertOk(
-    `${args.baseUrl}/api/live/stream?channels=overview&timezone=utc&detailLevel=standard`,
-    {
-      headers: operatorHeaders
-    }
-  );
-  const sseBody = await sseResponse.text();
-  const lastEventId = sseBody
-    .split("\n")
-    .find((line) => line.startsWith("id: "))
-    ?.replace("id: ", "")
-    .trim();
+  const initialStream = await readSsePreview({
+    url: `${args.baseUrl}/api/live/stream?channels=overview&timezone=utc&detailLevel=standard`,
+    headers: operatorHeaders
+  });
 
-  if (!sseBody.includes("event:")) {
+  if (!initialStream.firstChunk.includes("event:")) {
     throw new Error("SSE stream did not emit any events.");
   }
 
-  if (lastEventId) {
-    await assertOk(
-      `${args.baseUrl}/api/live/stream?channels=overview&timezone=utc&detailLevel=standard`,
-      {
-        headers: {
-          ...operatorHeaders,
-          "Last-Event-ID": lastEventId
-        }
+  if (initialStream.lastEventId) {
+    const replayStream = await readSsePreview({
+      url: `${args.baseUrl}/api/live/stream?channels=overview&timezone=utc&detailLevel=standard`,
+      headers: {
+        ...operatorHeaders,
+        "Last-Event-ID": initialStream.lastEventId
       }
-    );
+    });
+
+    if (!replayStream.firstChunk.includes("event:")) {
+      throw new Error("SSE replay stream did not emit any events.");
+    }
   }
 }
 

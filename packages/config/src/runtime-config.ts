@@ -23,6 +23,7 @@ export interface RuntimeConfig {
     readonly enableExecutorCollector: boolean;
     readonly enableRabbitMqManagementCollector: boolean;
     readonly enableRabbitMqConsumers: boolean;
+    readonly enableSmokeHeartbeatRefresh: boolean;
   };
   readonly strategyEndpoints: readonly StrategyEndpointConfig[];
 }
@@ -47,7 +48,8 @@ export function createRuntimeConfig(
       enablePublisherCollector: env.INGEST_ENABLE_PUBLISHER_COLLECTOR,
       enableExecutorCollector: env.INGEST_ENABLE_EXECUTOR_COLLECTOR,
       enableRabbitMqManagementCollector: env.INGEST_ENABLE_RABBITMQ_MANAGEMENT_COLLECTOR,
-      enableRabbitMqConsumers: env.INGEST_ENABLE_RABBITMQ_CONSUMERS
+      enableRabbitMqConsumers: env.INGEST_ENABLE_RABBITMQ_CONSUMERS,
+      enableSmokeHeartbeatRefresh: env.INGEST_ENABLE_SMOKE_HEARTBEAT_REFRESH
     },
     strategyEndpoints: [
       {

@@ -17,37 +17,22 @@ import { DegradedStatePanel } from "../components/state/DegradedStatePanel.js";
 import { EmptyState } from "../components/state/EmptyState.js";
 import { ErrorState } from "../components/state/ErrorState.js";
 import { LoadingState } from "../components/state/LoadingState.js";
-import { formatCurrency, formatTimestamp } from "../features/format/dateTime.js";
+import {
+  DISPLAY_TIMEZONE_LABEL,
+  formatCurrency,
+  formatTimestamp,
+  fromCentralDateTimeInput,
+  toCentralDateTimeInput
+} from "../features/format/dateTime.js";
 import { createExportHref } from "../features/exports/exportClient.js";
 import { connectStream } from "../features/live/streamClient.js";
 import { resolveStreamStatus } from "../features/live/streamStatus.js";
+import { useLatestRef } from "../features/live/useLatestRef.js";
 import { useGetPnlSummaryQuery, useGetPnlTimeseriesQuery } from "../features/pnl/pnlApi.js";
 import { setComparedStrategies, toggleComparedStrategy } from "../features/compare/compareSlice.js";
 import { useTimezoneQueryState } from "../features/router/queryState.js";
 import { useGetSessionQuery } from "../features/session/sessionApi.js";
 import { useGetStrategiesQuery } from "../features/strategies/strategiesApi.js";
-
-function toDateTimeInput(value: string | null): string {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-  const year = date.getUTCFullYear();
-  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getUTCDate()}`.padStart(2, "0");
-  const hours = `${date.getUTCHours()}`.padStart(2, "0");
-  const minutes = `${date.getUTCMinutes()}`.padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
-function fromDateTimeInput(value: string): string | undefined {
-  if (!value.trim()) {
-    return undefined;
-  }
-
-  return new Date(value).toISOString();
-}
 
 export function PnlPage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -92,6 +77,13 @@ export function PnlPage() {
   );
   const summary = useGetPnlSummaryQuery(summaryQuery);
   const timeseries = useGetPnlTimeseriesQuery(timeseriesQuery);
+  const summaryRefetchRef = useLatestRef(summary.refetch);
+  const timeseriesRefetchRef = useLatestRef(timeseries.refetch);
+  const compareKey = comparedStrategies.join(",");
+  const compareFilter = useMemo(
+    () => (compareKey ? compareKey.split(",") : undefined),
+    [compareKey]
+  );
 
   useEffect(() => {
     const disconnect = connectStream(
@@ -99,12 +91,12 @@ export function PnlPage() {
         channels: ["pnl"],
         timezone: timezone.mode,
         detailLevel: "standard",
-        compare: comparedStrategies
+        ...(compareFilter ? { compare: compareFilter } : {})
       },
       {
         onPnlUpsert() {
-          void summary.refetch();
-          void timeseries.refetch();
+          void summaryRefetchRef.current();
+          void timeseriesRefetchRef.current();
         },
         onStatus(event) {
           setStreamState(event.payload);
@@ -116,8 +108,8 @@ export function PnlPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void summary.refetch();
-          void timeseries.refetch();
+          void summaryRefetchRef.current();
+          void timeseriesRefetchRef.current();
         },
         onResyncRequired() {
           setStreamState({
@@ -126,8 +118,8 @@ export function PnlPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void summary.refetch();
-          void timeseries.refetch();
+          void summaryRefetchRef.current();
+          void timeseriesRefetchRef.current();
         },
         onError() {
           setStreamState({
@@ -136,14 +128,14 @@ export function PnlPage() {
             degraded: true,
             reconciliationPending: true
           });
-          void summary.refetch();
-          void timeseries.refetch();
+          void summaryRefetchRef.current();
+          void timeseriesRefetchRef.current();
         }
       }
     );
 
     return disconnect;
-  }, [comparedStrategies, summary, timeseries, timezone.mode]);
+  }, [compareFilter, summaryRefetchRef, timeseriesRefetchRef, timezone.mode]);
 
   const effectiveStreamStatus = resolveStreamStatus({
     status: streamState,
@@ -240,14 +232,14 @@ export function PnlPage() {
           {bucket === "custom" ? (
             <>
               <div className="field">
-                <label htmlFor="pnl-range-start">Start UTC</label>
+                <label htmlFor="pnl-range-start">Start {DISPLAY_TIMEZONE_LABEL}</label>
                 <input
                   id="pnl-range-start"
                   type="datetime-local"
-                  value={toDateTimeInput(rangeStartUtc)}
+                  value={toCentralDateTimeInput(rangeStartUtc)}
                   onChange={(event) => {
                     const next = new URLSearchParams(searchParams);
-                    const value = fromDateTimeInput(event.target.value);
+                    const value = fromCentralDateTimeInput(event.target.value);
                     if (value) {
                       next.set("rangeStartUtc", value);
                     } else {
@@ -258,14 +250,14 @@ export function PnlPage() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="pnl-range-end">End UTC</label>
+                <label htmlFor="pnl-range-end">End {DISPLAY_TIMEZONE_LABEL}</label>
                 <input
                   id="pnl-range-end"
                   type="datetime-local"
-                  value={toDateTimeInput(rangeEndUtc)}
+                  value={toCentralDateTimeInput(rangeEndUtc)}
                   onChange={(event) => {
                     const next = new URLSearchParams(searchParams);
-                    const value = fromDateTimeInput(event.target.value);
+                    const value = fromCentralDateTimeInput(event.target.value);
                     if (value) {
                       next.set("rangeEndUtc", value);
                     } else {
