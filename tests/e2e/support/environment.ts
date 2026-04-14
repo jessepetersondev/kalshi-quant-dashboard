@@ -14,12 +14,12 @@ export function applyE2EEnvironment(): void {
   const normalized = normalizeColorEnv(process.env);
   delete process.env.NO_COLOR;
   Object.assign(process.env, normalized);
-  process.env.NODE_ENV = process.env.NODE_ENV ?? "test";
+  process.env.NODE_ENV = "test";
   process.env.AUTH_MODE = "dev";
-  process.env.DATABASE_URL = process.env.DATABASE_URL ?? E2E_DATABASE_URL;
-  process.env.PORT_API = process.env.PORT_API ?? "39001";
-  process.env.WEB_PORT = process.env.WEB_PORT ?? "39000";
-  process.env.VITE_API_PROXY_TARGET = process.env.VITE_API_PROXY_TARGET ?? E2E_API_URL;
+  process.env.DATABASE_URL = E2E_DATABASE_URL;
+  process.env.PORT_API = "39001";
+  process.env.WEB_PORT = "39000";
+  process.env.VITE_API_PROXY_TARGET = E2E_API_URL;
 }
 
 export function createE2EEnvironment(
