@@ -16,4 +16,20 @@ describe("no-order diagnostic normalization", () => {
       reasonRaw: "no side passed gate"
     });
   });
+
+  test("fall back to top reasons and default text when no global reason is present", () => {
+    expect(
+      normalizeNoOrderDiagnosticPayload({
+        top_reasons: [{ reason: "queue unavailable" }]
+      })
+    ).toMatchObject({
+      reasonRaw: "queue unavailable",
+      skipCategory: "infrastructure"
+    });
+
+    expect(normalizeNoOrderDiagnosticPayload({})).toMatchObject({
+      reasonRaw: "no trade diagnostic",
+      skipCategory: "other"
+    });
+  });
 });

@@ -18,6 +18,7 @@
     "release:promote": "tsx scripts/release/promote.ts",
     "release:verify-staging": "tsx scripts/release/verify-staging.ts",
     "test": "tsx scripts/test.ts unit",
+    "test:coverage": "tsx scripts/test.ts unit --coverage.enabled --coverage.provider=v8 --coverage.reporter=text --coverage.reporter=json-summary --coverage.reporter=html",
     "test:contract": "tsx scripts/test.ts contract",
     "test:e2e": "tsx scripts/test.ts e2e",
     "test:integration": "tsx scripts/test.ts integration",
@@ -25,11 +26,12 @@
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
-    "@types/amqplib": "^0.10.7",
     "@commitlint/cli": "^19.8.0",
     "@commitlint/config-conventional": "^19.8.0",
     "@eslint/js": "^9.22.0",
     "@playwright/test": "^1.52.0",
+    "@types/amqplib": "^0.10.7",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.22.0",
     "globals": "^15.15.0",
     "js-yaml": "^4.1.1",

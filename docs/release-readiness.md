@@ -1,6 +1,6 @@
 # Release Readiness
 
-Validated on `2026-04-12` for feature `001-quant-ops-dashboard`.
+Validated on `2026-04-13` for feature `001-quant-ops-dashboard`.
 
 ## Release Gate
 
@@ -10,6 +10,7 @@ workspace:
 - `pnpm lint`
 - `pnpm typecheck`
 - `pnpm test`
+- `pnpm test:coverage`
 - `pnpm test:contract`
 - `pnpm test:integration`
 - `pnpm test:e2e`
@@ -83,4 +84,5 @@ The following docs were updated and validated against the implemented runtime:
 - [docs/runbooks/queue-backlog-and-dlq.md](./runbooks/queue-backlog-and-dlq.md)
 - [docs/runbooks/stale-pnl.md](./runbooks/stale-pnl.md)
 - [docs/troubleshooting.md](./troubleshooting.md)
+- unit coverage report in `coverage/unit` via `pnpm test:coverage`
 - [specs/001-quant-ops-dashboard/quickstart.md](../specs/001-quant-ops-dashboard/quickstart.md)

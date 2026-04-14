@@ -34,6 +34,53 @@ export default defineConfig({
     alias
   },
   test: {
+    coverage: {
+      all: true,
+      provider: "v8",
+      reporter: ["text", "json-summary", "html"],
+      reportsDirectory: "./coverage/unit",
+      exclude: [
+        "**/*.d.ts",
+        "**/*.js",
+        "**/dist/**",
+        "**/index.ts"
+      ],
+      include: [
+        "packages/auth/src/capabilities.ts",
+        "packages/auth/src/export-scope.ts",
+        "packages/auth/src/roles.ts",
+        "packages/auth/src/scope.ts",
+        "packages/config/src/env.ts",
+        "packages/config/src/runtime-config.ts",
+        "packages/config/src/secrets.ts",
+        "packages/source-adapters/src/base/adapter-registry.ts",
+        "packages/source-adapters/src/base/source-binding-resolver.ts",
+        "packages/source-adapters/src/base/strategy-registry.ts",
+        "packages/source-adapters/src/compatibility/field-mappings.ts",
+        "packages/source-adapters/src/compatibility/source-profiles.ts",
+        "apps/api/src/auth/capability-cache.ts",
+        "apps/api/src/auth/effective-capability-resolver.ts",
+        "apps/api/src/auth/export-scope-resolver.ts",
+        "apps/api/src/auth/policy-evaluator.ts",
+        "apps/ingest/src/alerts/alert-evaluator.ts",
+        "apps/ingest/src/health/ingest-health-state.ts",
+        "apps/ingest/src/normalization/no-order-normalizer.ts",
+        "apps/ingest/src/normalization/skip-normalizer.ts",
+        "apps/ingest/src/reconciliation/convergence-service.ts",
+        "apps/ingest/src/runtime/smoke-heartbeat-refresher.ts",
+        "apps/web/src/features/format/dateTime.ts",
+        "apps/web/src/features/lifecycle/selectors.ts",
+        "apps/web/src/features/live/pauseBuffer.ts",
+        "apps/web/src/features/live/streamClient.ts",
+        "apps/web/src/features/live/streamStatus.ts"
+      ],
+      thresholds: {
+        statements: 85,
+        branches: 85,
+        functions: 85,
+        lines: 85
+      }
+    },
     projects: [
       {
         extends: true,
