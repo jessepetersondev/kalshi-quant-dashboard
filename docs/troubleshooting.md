@@ -8,6 +8,9 @@
 - If `pnpm test:e2e` fails during startup, confirm the temporary Postgres
   container on `127.0.0.1:55432` is free.
 - If `pnpm test:smoke` fails, inspect `docker compose -f infra/compose/smoke.yml logs`.
+- If `pnpm test:smoke` times out during `beforeAll` on a slower CI runner, raise
+  `SMOKE_SETUP_TIMEOUT_MS` and, if needed, `SMOKE_WAIT_FOR_URL_TIMEOUT_MS`; the
+  smoke suite builds three local images before bringing the stack up.
 - If smoke setup fails with a `docker-buildx` error, confirm the local images can
   be built with plain `docker build`; the smoke test now prebuilds tagged local
   images before starting Compose.

@@ -4,6 +4,10 @@ import { createServer } from "node:net";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 const COMPOSE_FILE = "infra/compose/smoke.yml";
+const DEFAULT_SMOKE_SETUP_TIMEOUT_MS = 600_000;
+const DEFAULT_SMOKE_TEST_TIMEOUT_MS = 300_000;
+const DEFAULT_SMOKE_TEARDOWN_TIMEOUT_MS = 180_000;
+const DEFAULT_SMOKE_WAIT_FOR_URL_TIMEOUT_MS = 180_000;
 
 interface SmokePorts {
   readonly postgres: number;
@@ -12,6 +16,20 @@ interface SmokePorts {
   readonly api: number;
   readonly ingest: number;
   readonly web: number;
+}
+
+function readTimeoutEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer, received "${raw}".`);
+  }
+
+  return parsed;
 }
 
 async function getFreePort(): Promise<number> {
@@ -81,7 +99,10 @@ async function runCommand(
   });
 }
 
-async function waitForUrl(url: string, timeoutMs = 120_000): Promise<void> {
+async function waitForUrl(
+  url: string,
+  timeoutMs = readTimeoutEnv("SMOKE_WAIT_FOR_URL_TIMEOUT_MS", DEFAULT_SMOKE_WAIT_FOR_URL_TIMEOUT_MS)
+): Promise<void> {
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeoutMs) {
@@ -101,6 +122,18 @@ async function waitForUrl(url: string, timeoutMs = 120_000): Promise<void> {
 }
 
 describe.sequential("deployment smoke", () => {
+  const smokeSetupTimeoutMs = readTimeoutEnv(
+    "SMOKE_SETUP_TIMEOUT_MS",
+    DEFAULT_SMOKE_SETUP_TIMEOUT_MS
+  );
+  const smokeTestTimeoutMs = readTimeoutEnv(
+    "SMOKE_TEST_TIMEOUT_MS",
+    DEFAULT_SMOKE_TEST_TIMEOUT_MS
+  );
+  const smokeTeardownTimeoutMs = readTimeoutEnv(
+    "SMOKE_TEARDOWN_TIMEOUT_MS",
+    DEFAULT_SMOKE_TEARDOWN_TIMEOUT_MS
+  );
   let ports: SmokePorts;
   let smokeEnv: NodeJS.ProcessEnv | undefined;
   let smokeDatabaseUrl = "";
@@ -158,7 +191,7 @@ describe.sequential("deployment smoke", () => {
         DATABASE_URL: smokeDatabaseUrl
       }
     });
-  }, 240_000);
+  }, smokeSetupTimeoutMs);
 
   afterAll(async () => {
     if (!smokeEnv) {
@@ -172,7 +205,7 @@ describe.sequential("deployment smoke", () => {
     } catch {
       // Leave teardown best-effort so an earlier failure does not mask the root cause.
     }
-  }, 120_000);
+  }, smokeTeardownTimeoutMs);
 
   test(
     "validates the deployment stack and release probe flow",
@@ -204,6 +237,6 @@ describe.sequential("deployment smoke", () => {
 
       expect(true).toBe(true);
     },
-    240_000
+    smokeTestTimeoutMs
   );
 });

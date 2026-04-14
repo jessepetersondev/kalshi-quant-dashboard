@@ -105,6 +105,10 @@ stages:
             env:
               CI: "true"
               DATABASE_URL: $(DatabaseUrl)
+              SMOKE_SETUP_TIMEOUT_MS: "600000"
+              SMOKE_TEST_TIMEOUT_MS: "300000"
+              SMOKE_TEARDOWN_TIMEOUT_MS: "180000"
+              SMOKE_WAIT_FOR_URL_TIMEOUT_MS: "180000"
 
           - script: docker rm -f $(PostgresContainerName) || true
             displayName: Stop Postgres test service
