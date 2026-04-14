@@ -99,6 +99,36 @@ async function runCommand(
   });
 }
 
+async function runCommandWithRetries(
+  command: string,
+  args: readonly string[],
+  options?: {
+    readonly env?: NodeJS.ProcessEnv;
+    readonly retries?: number;
+    readonly retryDelayMs?: number;
+  }
+): Promise<void> {
+  const retries = options?.retries ?? 30;
+  const retryDelayMs = options?.retryDelayMs ?? 2_000;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < retries; attempt += 1) {
+    try {
+      await runCommand(command, args, options);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt === retries - 1) {
+        break;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
+  }
+
+  throw lastError;
+}
+
 async function waitForUrl(
   url: string,
   timeoutMs = readTimeoutEnv("SMOKE_WAIT_FOR_URL_TIMEOUT_MS", DEFAULT_SMOKE_WAIT_FOR_URL_TIMEOUT_MS)
@@ -165,19 +195,17 @@ describe.sequential("deployment smoke", () => {
       env: smokeEnv
     });
 
-    await runCommand("docker", ["compose", "-f", COMPOSE_FILE, "up", "-d"], {
+    await runCommand("docker", ["compose", "-f", COMPOSE_FILE, "up", "-d", "postgres", "rabbitmq"], {
       env: smokeEnv
     });
 
-    await waitForUrl(`http://127.0.0.1:${ports.api}/health/ready`);
-    await waitForUrl(`http://127.0.0.1:${ports.ingest}/health/ready`);
-    await waitForUrl(`http://127.0.0.1:${ports.web}/health/ready`);
-
-    await runCommand("pnpm", ["db:migrate"], {
+    await runCommandWithRetries("pnpm", ["db:migrate"], {
       env: {
         ...smokeEnv,
         DATABASE_URL: smokeDatabaseUrl
-      }
+      },
+      retries: 60,
+      retryDelayMs: 2_000
     });
     await runCommand("pnpm", ["db:seed"], {
       env: {
@@ -191,6 +219,14 @@ describe.sequential("deployment smoke", () => {
         DATABASE_URL: smokeDatabaseUrl
       }
     });
+
+    await runCommand("docker", ["compose", "-f", COMPOSE_FILE, "up", "-d", "api", "ingest", "web"], {
+      env: smokeEnv
+    });
+
+    await waitForUrl(`http://127.0.0.1:${ports.api}/health/ready`);
+    await waitForUrl(`http://127.0.0.1:${ports.ingest}/health/ready`);
+    await waitForUrl(`http://127.0.0.1:${ports.web}/health/ready`);
   }, smokeSetupTimeoutMs);
 
   afterAll(async () => {
