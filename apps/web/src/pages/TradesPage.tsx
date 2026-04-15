@@ -35,7 +35,7 @@ function upsertTradeRow(
 }
 
 export function TradesPage() {
-  const { state, setState } = useLifecycleQueryState();
+  const { state, setState } = useLifecycleQueryState({ defaultRange: "all-time" });
   const { data: session } = useGetSessionQuery();
   const { data, error, isLoading, refetch } = useGetTradeListQuery({
     page: state.page,

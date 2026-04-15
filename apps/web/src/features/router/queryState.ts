@@ -34,6 +34,17 @@ export interface LifecycleQueryPatch {
   readonly detail?: string | null;
 }
 
+interface LifecycleQueryStateOptions {
+  readonly defaultRange?: string;
+}
+
+export function resolveLifecycleRange(
+  searchParams: URLSearchParams,
+  defaultRange = "24h"
+): string {
+  return searchParams.get("range") ?? defaultRange;
+}
+
 function parseCsvParam(value: string | null): string[] | undefined {
   if (!value) {
     return undefined;
@@ -71,10 +82,11 @@ export function useTimezoneQueryState() {
   };
 }
 
-export function useLifecycleQueryState() {
+export function useLifecycleQueryState(options: LifecycleQueryStateOptions = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const defaultRange = options.defaultRange ?? "24h";
 
   const state = useMemo<LifecycleQueryState>(
     () => ({
@@ -83,7 +95,7 @@ export function useLifecycleQueryState() {
       sort: searchParams.get("sort") === "oldest" ? "oldest" : "newest",
       search: searchParams.get("search") ?? "",
       timezone: searchParams.get("timezone") === "local" ? "local" : "utc",
-      range: searchParams.get("range") ?? "24h",
+      range: resolveLifecycleRange(searchParams, defaultRange),
       strategy: parseCsvParam(searchParams.get("strategy")),
       symbol: parseCsvParam(searchParams.get("symbol")),
       market: parseCsvParam(searchParams.get("market")),
@@ -91,7 +103,7 @@ export function useLifecycleQueryState() {
       lifecycleStage: parseCsvParam(searchParams.get("lifecycleStage")),
       detail: searchParams.get("detail")
     }),
-    [searchParams]
+    [defaultRange, searchParams]
   );
 
   function patch(nextState: LifecycleQueryPatch) {
