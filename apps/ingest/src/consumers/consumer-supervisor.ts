@@ -5,6 +5,16 @@ import { PublisherConsumer } from "../adapters/rabbitmq/publisher-consumer.js";
 import { SourceIngestService } from "../services/source-ingest-service.js";
 import { sourceProfiles } from "@kalshi-quant-dashboard/source-adapters";
 
+function queueWithDeadLetter(deadLetterQueue: string) {
+  return {
+    durable: true,
+    arguments: {
+      "x-dead-letter-exchange": "",
+      "x-dead-letter-routing-key": deadLetterQueue
+    }
+  } as const;
+}
+
 export interface RuntimeConsumer {
   readonly name: string;
   start(): Promise<void>;
@@ -20,6 +30,7 @@ export class ConsumerSupervisor {
         name: "publisher-envelope-consumer",
         url: runtimeConfig.env.RABBITMQ_URL,
         queue: "kalshi.integration.executor",
+        queueOptions: queueWithDeadLetter("kalshi.integration.executor.dlq"),
         sourceProfile: sourceProfiles.publisherEnvelopeV1,
         sourceRepo: "kalshi-integration-event-publisher",
         ingestService: sourceIngestService
@@ -28,6 +39,7 @@ export class ConsumerSupervisor {
         name: "publisher-results-consumer",
         url: runtimeConfig.env.RABBITMQ_URL,
         queue: "kalshi.integration.event-publisher.results",
+        queueOptions: queueWithDeadLetter("kalshi.integration.event-publisher.results.dlq"),
         sourceProfile: sourceProfiles.publisherResultV1,
         sourceRepo: "kalshi-integration-event-publisher",
         ingestService: sourceIngestService
@@ -36,6 +48,7 @@ export class ConsumerSupervisor {
         name: "executor-results-consumer",
         url: runtimeConfig.env.RABBITMQ_URL,
         queue: "kalshi.integration.executor.results",
+        queueOptions: queueWithDeadLetter("kalshi.integration.executor.results.dlq"),
         sourceRepo: "kalshi-integration-executor",
         ingestService: sourceIngestService
       })

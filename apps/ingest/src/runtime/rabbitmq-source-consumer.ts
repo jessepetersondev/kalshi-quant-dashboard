@@ -1,15 +1,17 @@
 import type { ConsumeMessage } from "amqplib";
+import type { Options } from "amqplib";
 
 import type { SourceProfile } from "@kalshi-quant-dashboard/source-adapters";
 import type { SourceObservationInput } from "@kalshi-quant-dashboard/source-adapters";
 
-import { RabbitMqConsumer } from "../consumers/rabbitmq-consumer.js";
+import { RabbitMqConsumer, type RabbitMqConsumerOptions } from "../consumers/rabbitmq-consumer.js";
 import type { SourceIngestService } from "../services/source-ingest-service.js";
 
 export interface RabbitMqSourceConsumerOptions {
   readonly name: string;
   readonly url: string;
   readonly queue: string;
+  readonly queueOptions?: Options.AssertQueue;
   readonly sourceProfile: SourceProfile;
   readonly sourceRepo: string;
   readonly strategyId?: string;
@@ -45,10 +47,16 @@ export class RabbitMqSourceConsumer {
 
   constructor(private readonly options: RabbitMqSourceConsumerOptions) {
     this.name = options.name;
-    this.consumer = new RabbitMqConsumer({
+    const consumerOptions: RabbitMqConsumerOptions = {
       url: options.url,
       queue: options.queue
-    });
+    };
+
+    if (options.queueOptions) {
+      Object.assign(consumerOptions, { queueOptions: options.queueOptions });
+    }
+
+    this.consumer = new RabbitMqConsumer(consumerOptions);
   }
 
   async start(): Promise<void> {

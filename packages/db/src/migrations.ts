@@ -11,5 +11,9 @@ export const migrations: readonly MigrationDescriptor[] = [
   {
     id: "0002_performance",
     fileName: "0002_performance.sql"
+  },
+  {
+    id: "0003_projection_lookup_indexes",
+    fileName: "0003_projection_lookup_indexes.sql"
   }
 ];

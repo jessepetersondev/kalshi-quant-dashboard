@@ -32,11 +32,16 @@ export function buildMixedSourceRuntime(sourceIngestService: SourceIngestService
 } {
   const runtimeConfig = createRuntimeConfig();
   const strategyRegistry = loadSeededStrategyRegistry();
+  const enabledStrategies = new Set(runtimeConfig.ingestRuntime.enabledStrategies);
+  const strategies =
+    enabledStrategies.size > 0
+      ? strategyRegistry.list().filter((strategy) => enabledStrategies.has(strategy.strategyId))
+      : strategyRegistry.list();
   const collectors: CollectorHandle[] = [];
 
   if (runtimeConfig.ingestRuntime.enableStrategyCollectors) {
     collectors.push(
-      ...strategyRegistry.list().flatMap((strategy) => buildStrategyCollectors(strategy, sourceIngestService))
+      ...strategies.flatMap((strategy) => buildStrategyCollectors(strategy, sourceIngestService))
     );
   }
 

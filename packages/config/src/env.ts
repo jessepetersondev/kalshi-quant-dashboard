@@ -36,6 +36,7 @@ export const envSchema = z
     STRATEGY_ETH_BASE_URL: nonEmptyString.default("http://localhost:8102"),
     STRATEGY_SOL_BASE_URL: nonEmptyString.default("http://localhost:8103"),
     STRATEGY_XRP_BASE_URL: nonEmptyString.default("http://localhost:8104"),
+    INGEST_ENABLED_STRATEGIES: z.string().trim().default(""),
     AUTH_MODE: authModeSchema.default("dev"),
     SESSION_COOKIE_NAME: nonEmptyString.default("kqd_session"),
     SESSION_COOKIE_SECRET: nonEmptyString.default("dev-session-secret-change-me"),

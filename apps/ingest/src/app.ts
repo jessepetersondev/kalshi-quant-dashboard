@@ -58,7 +58,9 @@ export function createIngestService(): IngestService {
         throw error;
       }
 
-      await runCollectors();
+      await runCollectors().catch((error) => {
+        logger.error({ err: error }, "Initial collector run failed.");
+      });
       logger.info({ port: config.ingestPort }, "Ingest service started.");
       interval = setInterval(() => {
         void runCollectors().catch((error) => {

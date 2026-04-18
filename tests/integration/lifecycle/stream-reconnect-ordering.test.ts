@@ -1,10 +1,17 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "vitest";
 
 import { query } from "@kalshi-quant-dashboard/db";
 import {
   bootstrapTestDatabase,
   resetFoundationalState,
-  shutdownTestDatabase
+  shutdownTestDatabase,
 } from "@kalshi-quant-dashboard/testing";
 
 import { buildApp } from "../../../apps/api/src/app.js";
@@ -44,8 +51,8 @@ describe.sequential("lifecycle stream reconnect ordering", () => {
       url: "/api/live/stream?channels=decisions,trades",
       headers: {
         "x-dashboard-user": "developer@example.internal",
-        "x-kqd-test-stream-mode": "snapshot"
-      }
+        "x-kqd-test-stream-mode": "snapshot",
+      },
     });
 
     expect(initialResponse.statusCode).toBe(200);
@@ -59,12 +66,30 @@ describe.sequential("lifecycle stream reconnect ordering", () => {
       headers: {
         "x-dashboard-user": "developer@example.internal",
         "last-event-id": String(ids.at(-1)),
-        "x-kqd-test-stream-mode": "snapshot"
-      }
+        "x-kqd-test-stream-mode": "snapshot",
+      },
     });
 
     expect(reconnectResponse.statusCode).toBe(200);
     expect(extractEventIds(reconnectResponse.body)).toHaveLength(0);
+  });
+
+  test("start fresh live streams at the current projection head instead of backfilling history", async () => {
+    await seedLifecycleFacts();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/live/stream?channels=decisions,trades",
+      headers: {
+        "x-dashboard-user": "developer@example.internal",
+        "x-kqd-test-stream-mode": "snapshot-current",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).not.toContain("event: decision.upsert");
+    expect(response.body).not.toContain("event: trade.upsert");
+    expect(extractEventIds(response.body)).toHaveLength(0);
   });
 
   test("emit stream.gap and stream.resync_required when reconciliation or retention requires refetch", async () => {
@@ -98,8 +123,8 @@ describe.sequential("lifecycle stream reconnect ordering", () => {
       url: "/api/live/stream?channels=skips",
       headers: {
         "x-dashboard-user": "developer@example.internal",
-        "x-kqd-test-stream-mode": "snapshot"
-      }
+        "x-kqd-test-stream-mode": "snapshot",
+      },
     });
 
     expect(gapResponse.statusCode).toBe(200);
@@ -156,8 +181,8 @@ describe.sequential("lifecycle stream reconnect ordering", () => {
       headers: {
         "x-dashboard-user": "developer@example.internal",
         "last-event-id": String(tooOldCursor),
-        "x-kqd-test-stream-mode": "snapshot"
-      }
+        "x-kqd-test-stream-mode": "snapshot",
+      },
     });
 
     expect(resyncResponse.statusCode).toBe(200);

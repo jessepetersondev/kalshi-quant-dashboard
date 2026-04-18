@@ -1,9 +1,10 @@
-import type { Channel, ChannelModel, ConsumeMessage } from "amqplib";
+import type { Channel, ChannelModel, ConsumeMessage, Options } from "amqplib";
 import amqplib from "amqplib";
 
 export interface RabbitMqConsumerOptions {
   readonly url: string;
   readonly queue: string;
+  readonly queueOptions?: Options.AssertQueue;
   readonly prefetch?: number;
 }
 
@@ -25,7 +26,10 @@ export class RabbitMqConsumer {
     this.connection = connection;
     this.channel = channel;
 
-    await channel.assertQueue(this.options.queue, { durable: true });
+    await channel.assertQueue(this.options.queue, {
+      durable: true,
+      ...this.options.queueOptions
+    });
     await channel.prefetch(this.options.prefetch ?? 1);
     await channel.consume(this.options.queue, async (message) => {
       if (!message) {
@@ -43,9 +47,13 @@ export class RabbitMqConsumer {
   }
 
   async stop(): Promise<void> {
-    await this.channel?.close();
-    await this.connection?.close();
+    const channel = this.channel;
+    const connection = this.connection;
+
     this.channel = undefined;
     this.connection = undefined;
+
+    await channel?.close().catch(() => undefined);
+    await connection?.close().catch(() => undefined);
   }
 }

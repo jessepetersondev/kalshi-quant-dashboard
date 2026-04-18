@@ -24,6 +24,7 @@ export interface RuntimeConfig {
     readonly enableRabbitMqManagementCollector: boolean;
     readonly enableRabbitMqConsumers: boolean;
     readonly enableSmokeHeartbeatRefresh: boolean;
+    readonly enabledStrategies: readonly string[];
   };
   readonly strategyEndpoints: readonly StrategyEndpointConfig[];
 }
@@ -49,7 +50,10 @@ export function createRuntimeConfig(
       enableExecutorCollector: env.INGEST_ENABLE_EXECUTOR_COLLECTOR,
       enableRabbitMqManagementCollector: env.INGEST_ENABLE_RABBITMQ_MANAGEMENT_COLLECTOR,
       enableRabbitMqConsumers: env.INGEST_ENABLE_RABBITMQ_CONSUMERS,
-      enableSmokeHeartbeatRefresh: env.INGEST_ENABLE_SMOKE_HEARTBEAT_REFRESH
+      enableSmokeHeartbeatRefresh: env.INGEST_ENABLE_SMOKE_HEARTBEAT_REFRESH,
+      enabledStrategies: env.INGEST_ENABLED_STRATEGIES.split(",")
+        .map((strategyId) => strategyId.trim().toLowerCase())
+        .filter((strategyId) => strategyId.length > 0)
     },
     strategyEndpoints: [
       {

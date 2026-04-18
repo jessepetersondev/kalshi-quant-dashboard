@@ -13,6 +13,7 @@
     "db:migrate": "tsx packages/db/src/migrate.ts",
     "db:seed": "tsx packages/db/src/seed.ts",
     "dev": "tsx scripts/dev.ts",
+    "start": "tsx scripts/start.ts",
     "format": "prettier --check .",
     "lint": "eslint .",
     "release:promote": "tsx scripts/release/promote.ts",

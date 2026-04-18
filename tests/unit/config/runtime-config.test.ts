@@ -26,11 +26,13 @@ describe("runtime config", () => {
       STRATEGY_ETH_BASE_URL: "http://eth.test",
       STRATEGY_SOL_BASE_URL: "http://sol.test",
       STRATEGY_XRP_BASE_URL: "http://xrp.test",
-      INGEST_ENABLE_RABBITMQ_CONSUMERS: "false"
+      INGEST_ENABLE_RABBITMQ_CONSUMERS: "false",
+      INGEST_ENABLED_STRATEGIES: "btc, sol"
     });
 
     expect(config.authMode).toBe("oidc");
     expect(config.ingestRuntime.enableRabbitMqConsumers).toBe(false);
+    expect(config.ingestRuntime.enabledStrategies).toEqual(["btc", "sol"]);
     expect(config.strategyEndpoints).toEqual([
       {
         strategyId: "btc",

@@ -387,7 +387,18 @@ export class DedupService {
                   price,
                   occurred_at
                 )
-                values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                values (
+                  $1,
+                  $2,
+                  (select trade_id from trades where trade_id = $3),
+                  $4,
+                  $5,
+                  $6,
+                  $7,
+                  $8,
+                  $9,
+                  $10
+                )
                 on conflict (fill_id) do nothing
               `,
               [

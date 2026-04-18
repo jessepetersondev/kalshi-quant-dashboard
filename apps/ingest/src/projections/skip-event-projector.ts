@@ -1,4 +1,3 @@
-import { scopeAllows } from "@kalshi-quant-dashboard/auth";
 import { query } from "@kalshi-quant-dashboard/db";
 import {
   pageInfoSchema,
@@ -6,10 +5,11 @@ import {
   skipRowSchema,
   skipTaxonomyCountSchema,
   type SkipListQuery,
-  type SkipListResponse
+  type SkipListResponse,
 } from "@kalshi-quant-dashboard/contracts";
 
 interface SkipProjectionRow {
+  readonly decision_id: string;
   readonly correlation_id: string;
   readonly strategy_id: string;
   readonly symbol: string | null;
@@ -18,6 +18,13 @@ interface SkipProjectionRow {
   readonly skip_code: string | null;
   readonly reason_raw: string;
   readonly decision_at: string;
+}
+
+interface SkipTaxonomyProjectionRow {
+  readonly skip_category: string;
+  readonly skip_code: string | null;
+  readonly count: number;
+  readonly examples: string[] | null;
 }
 
 function resolveRangeStart(range: string, now = new Date()): Date | null {
@@ -43,22 +50,167 @@ function resolveRangeStart(range: string, now = new Date()): Date | null {
   return null;
 }
 
-async function loadSkipRows(): Promise<SkipProjectionRow[]> {
+function addSqlParam(params: unknown[], value: unknown): string {
+  params.push(value);
+  return `$${params.length}`;
+}
+
+function hasWildcardScope(strategyScope: readonly string[]): boolean {
+  return strategyScope[0] === "*";
+}
+
+function appendSkipConditions(
+  conditions: string[],
+  params: unknown[],
+  args: {
+    readonly strategyScope: readonly string[];
+    readonly query: SkipListQuery;
+  }
+): void {
+  conditions.push("(d.action = 'skip' or d.skip_category is not null)");
+
+  if (!hasWildcardScope(args.strategyScope)) {
+    conditions.push(
+      `d.strategy_id = any(${addSqlParam(params, args.strategyScope)}::text[])`
+    );
+  }
+
+  if (args.query.strategy?.length) {
+    conditions.push(
+      `d.strategy_id = any(${addSqlParam(params, args.query.strategy)}::text[])`
+    );
+  }
+
+  if (args.query.symbol?.length) {
+    conditions.push(
+      `coalesce(nullif(d.symbol, ''), upper(d.strategy_id)) = any(${addSqlParam(
+        params,
+        args.query.symbol
+      )}::text[])`
+    );
+  }
+
+  if (args.query.market?.length) {
+    conditions.push(
+      `d.market_ticker = any(${addSqlParam(params, args.query.market)}::text[])`
+    );
+  }
+
+  if (args.query.skipCategory?.length) {
+    conditions.push(
+      `coalesce(d.skip_category::text, 'other') = any(${addSqlParam(
+        params,
+        args.query.skipCategory
+      )}::text[])`
+    );
+  }
+
+  const rangeStart = resolveRangeStart(args.query.range);
+  if (rangeStart) {
+    conditions.push(
+      `d.decision_at >= ${addSqlParam(params, rangeStart)}::timestamptz`
+    );
+  }
+
+  const search = args.query.search?.trim();
+  if (search) {
+    const searchParam = addSqlParam(params, `%${search}%`);
+    conditions.push(`(
+      d.correlation_id ilike ${searchParam}
+      or d.strategy_id ilike ${searchParam}
+      or coalesce(nullif(d.symbol, ''), upper(d.strategy_id)) ilike ${searchParam}
+      or d.market_ticker ilike ${searchParam}
+      or coalesce(d.skip_category::text, 'other') ilike ${searchParam}
+      or coalesce(d.skip_code, '') ilike ${searchParam}
+      or d.reason_raw ilike ${searchParam}
+    )`);
+  }
+}
+
+function buildSkipWhere(args: {
+  readonly strategyScope: readonly string[];
+  readonly query: SkipListQuery;
+}): { readonly whereSql: string; readonly params: unknown[] } {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  appendSkipConditions(conditions, params, args);
+
+  return {
+    whereSql: `where ${conditions.join("\n        and ")}`,
+    params,
+  };
+}
+
+async function countSkipRows(args: {
+  readonly strategyScope: readonly string[];
+  readonly query: SkipListQuery;
+}): Promise<number> {
+  const { whereSql, params } = buildSkipWhere(args);
+  const result = await query<{ readonly total_items: number }>(
+    `
+      select count(*)::int as total_items
+      from decisions d
+      ${whereSql}
+    `,
+    params
+  );
+
+  return Number(result.rows[0]?.total_items ?? 0);
+}
+
+async function loadSkipRows(args: {
+  readonly strategyScope: readonly string[];
+  readonly query: SkipListQuery;
+}): Promise<SkipProjectionRow[]> {
+  const { whereSql, params } = buildSkipWhere(args);
+  const direction = args.query.sort === "oldest" ? "asc" : "desc";
+  const limitParam = addSqlParam(params, args.query.pageSize);
+  const offsetParam = addSqlParam(
+    params,
+    (args.query.page - 1) * args.query.pageSize
+  );
   const result = await query<SkipProjectionRow>(
     `
       select
-        correlation_id,
-        strategy_id,
-        nullif(symbol, '') as symbol,
-        market_ticker,
-        skip_category,
-        skip_code,
-        reason_raw,
-        decision_at::text as decision_at
-      from decisions
-      where action = 'skip' or skip_category is not null
-      order by decision_at desc, decision_id asc
+        d.decision_id,
+        d.correlation_id,
+        d.strategy_id,
+        nullif(d.symbol, '') as symbol,
+        d.market_ticker,
+        d.skip_category,
+        d.skip_code,
+        d.reason_raw,
+        d.decision_at::text as decision_at
+      from decisions d
+      ${whereSql}
+      order by d.decision_at ${direction}, d.decision_id asc
+      limit ${limitParam}
+      offset ${offsetParam}
+    `,
+    params
+  );
+
+  return result.rows;
+}
+
+async function loadSkipTaxonomyRows(args: {
+  readonly strategyScope: readonly string[];
+  readonly query: SkipListQuery;
+}): Promise<SkipTaxonomyProjectionRow[]> {
+  const { whereSql, params } = buildSkipWhere(args);
+  const result = await query<SkipTaxonomyProjectionRow>(
     `
+      select
+        coalesce(d.skip_category::text, 'other') as skip_category,
+        nullif(d.skip_code, '') as skip_code,
+        count(*)::int as count,
+        (array_agg(distinct d.reason_raw order by d.reason_raw))[1:3] as examples
+      from decisions d
+      ${whereSql}
+      group by coalesce(d.skip_category::text, 'other'), nullif(d.skip_code, '')
+      order by count(*) desc, coalesce(d.skip_category::text, 'other') asc
+    `,
+    params
   );
 
   return result.rows;
@@ -68,64 +220,13 @@ export async function projectSkipList(args: {
   readonly strategyScope: readonly string[];
   readonly query: SkipListQuery;
 }): Promise<SkipListResponse> {
-  const rangeStart = resolveRangeStart(args.query.range);
-  const rows = (await loadSkipRows()).filter((row) => {
-    if (!scopeAllows(args.strategyScope, row.strategy_id)) {
-      return false;
-    }
-
-    if (args.query.strategy?.length && !args.query.strategy.includes(row.strategy_id)) {
-      return false;
-    }
-
-    const symbol = row.symbol ?? row.strategy_id.toUpperCase();
-    if (args.query.symbol?.length && !args.query.symbol.includes(symbol)) {
-      return false;
-    }
-
-    if (args.query.market?.length && !args.query.market.includes(row.market_ticker)) {
-      return false;
-    }
-
-    if (
-      args.query.skipCategory?.length &&
-      !args.query.skipCategory.includes(row.skip_category ?? "other")
-    ) {
-      return false;
-    }
-
-    if (rangeStart && new Date(row.decision_at) < rangeStart) {
-      return false;
-    }
-
-    if (!args.query.search?.trim()) {
-      return true;
-    }
-
-    const needle = args.query.search.trim().toLowerCase();
-    return [
-      row.correlation_id,
-      row.strategy_id,
-      symbol,
-      row.market_ticker,
-      row.skip_category ?? "other",
-      row.skip_code ?? "",
-      row.reason_raw
-    ]
-      .join(" ")
-      .toLowerCase()
-      .includes(needle);
-  });
-
-  const ordered = rows.sort((left, right) =>
-    args.query.sort === "oldest"
-      ? new Date(left.decision_at).valueOf() - new Date(right.decision_at).valueOf()
-      : new Date(right.decision_at).valueOf() - new Date(left.decision_at).valueOf()
-  );
-  const totalItems = ordered.length;
+  const [rows, totalItems, taxonomyRows] = await Promise.all([
+    loadSkipRows(args),
+    countSkipRows(args),
+    loadSkipTaxonomyRows(args),
+  ]);
   const totalPages = Math.max(1, Math.ceil(totalItems / args.query.pageSize));
-  const pageStart = (args.query.page - 1) * args.query.pageSize;
-  const pageItems = ordered.slice(pageStart, pageStart + args.query.pageSize).map((row) =>
+  const pageItems = rows.map((row) =>
     skipRowSchema.parse({
       correlationId: row.correlation_id,
       strategyId: row.strategy_id,
@@ -134,40 +235,26 @@ export async function projectSkipList(args: {
       skipCategory: row.skip_category ?? "other",
       skipCode: row.skip_code,
       reasonRaw: row.reason_raw,
-      occurredAt: new Date(row.decision_at).toISOString()
+      occurredAt: new Date(row.decision_at).toISOString(),
     })
   );
 
-  const taxonomyMap = new Map<string, { count: number; examples: string[] }>();
-  for (const row of ordered) {
-    const key = `${row.skip_category ?? "other"}::${row.skip_code ?? ""}`;
-    const current = taxonomyMap.get(key) ?? { count: 0, examples: [] };
-    current.count += 1;
-    if (current.examples.length < 3 && !current.examples.includes(row.reason_raw)) {
-      current.examples.push(row.reason_raw);
-    }
-    taxonomyMap.set(key, current);
-  }
-
   return skipListResponseSchema.parse({
     items: pageItems,
-    taxonomyBreakdown: [...taxonomyMap.entries()]
-      .map(([key, value]) => {
-        const [skipCategory, skipCode] = key.split("::");
-        return skipTaxonomyCountSchema.parse({
-          skipCategory,
-          skipCode: skipCode || null,
-          count: value.count,
-          examples: value.examples
-        });
+    taxonomyBreakdown: taxonomyRows.map((row) =>
+      skipTaxonomyCountSchema.parse({
+        skipCategory: row.skip_category,
+        skipCode: row.skip_code,
+        count: Number(row.count),
+        examples: row.examples ?? [],
       })
-      .sort((left, right) => right.count - left.count || left.skipCategory.localeCompare(right.skipCategory)),
+    ),
     pageInfo: pageInfoSchema.parse({
       page: args.query.page,
       pageSize: args.query.pageSize,
       totalItems,
-      totalPages
-    })
+      totalPages,
+    }),
   });
 }
 
@@ -208,10 +295,12 @@ export async function projectSkipStreamChanges(args: {
             sort: "newest",
             search: row.correlation_id,
             timezone: "utc",
-            range: "all-time"
-          }
+            range: "all-time",
+          },
         })
-      ).items.find((candidate) => candidate.correlationId === row.correlation_id);
+      ).items.find(
+        (candidate) => candidate.correlationId === row.correlation_id
+      );
 
       if (!summary) {
         return null;
@@ -220,10 +309,12 @@ export async function projectSkipStreamChanges(args: {
       return {
         projectionChangeId: row.projection_change_id,
         effectiveOccurredAt: new Date(row.effective_occurred_at).toISOString(),
-        row: summary
+        row: summary,
       };
     })
   );
 
-  return summaries.filter((value): value is NonNullable<typeof value> => value !== null);
+  return summaries.filter(
+    (value): value is NonNullable<typeof value> => value !== null
+  );
 }

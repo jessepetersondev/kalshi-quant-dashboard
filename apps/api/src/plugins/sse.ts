@@ -12,7 +12,7 @@ import {
   streamGapEventSchema,
   streamResyncRequiredEventSchema,
   streamStatusEventSchema,
-  tradeUpsertEventSchema
+  tradeUpsertEventSchema,
 } from "@kalshi-quant-dashboard/contracts";
 import { query } from "@kalshi-quant-dashboard/db";
 
@@ -22,31 +22,23 @@ import { DecisionService } from "../services/decision-service.js";
 import { TradeService } from "../services/trade-service.js";
 import { AlertService } from "../services/alert-service.js";
 import { LiveSubscriptionService } from "../services/live-subscription-service.js";
-import {
-  projectAlertStreamChanges
-} from "../../../ingest/src/projections/alert-projector.js";
-import {
-  projectDecisionStreamChanges
-} from "../../../ingest/src/projections/decision-lifecycle-projector.js";
-import {
-  projectPnlStreamChanges
-} from "../../../ingest/src/projections/pnl-snapshot-projector.js";
-import {
-  projectQueueMetricStreamChanges
-} from "../../../ingest/src/projections/queue-metric-projector.js";
-import {
-  projectSkipStreamChanges
-} from "../../../ingest/src/projections/skip-event-projector.js";
-import {
-  projectTradeStreamChanges
-} from "../../../ingest/src/projections/trade-attempt-projector.js";
+import { projectAlertStreamChanges } from "../../../ingest/src/projections/alert-projector.js";
+import { projectDecisionStreamChanges } from "../../../ingest/src/projections/decision-lifecycle-projector.js";
+import { projectPnlStreamChanges } from "../../../ingest/src/projections/pnl-snapshot-projector.js";
+import { projectQueueMetricStreamChanges } from "../../../ingest/src/projections/queue-metric-projector.js";
+import { projectSkipStreamChanges } from "../../../ingest/src/projections/skip-event-projector.js";
+import { projectTradeStreamChanges } from "../../../ingest/src/projections/trade-attempt-projector.js";
 
 const SSE_HEARTBEAT_INTERVAL_MS = 15_000;
 const SSE_POLL_INTERVAL_MS = 1_000;
+const MAX_STREAM_BACKFILL_CHANGES = 500;
 
 function normalizeArrayQuery(value: unknown): string[] | undefined {
   if (typeof value === "string" && value.length > 0) {
-    return value.split(",").map((entry) => entry.trim()).filter(Boolean);
+    return value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
   }
 
   if (Array.isArray(value)) {
@@ -83,7 +75,7 @@ function baseStreamEnvelope(args: {
     projectionChangeId: args.projectionChangeId,
     detailLevel: args.detailLevel,
     emittedAt: args.emittedAt,
-    effectiveOccurredAt: args.effectiveOccurredAt ?? null
+    effectiveOccurredAt: args.effectiveOccurredAt ?? null,
   };
 }
 
@@ -119,8 +111,9 @@ async function readProjectionWindow(channels: readonly string[]) {
   );
 
   return {
-    earliestProjectionChangeId: result.rows[0]?.earliest_projection_change_id ?? 0,
-    latestProjectionChangeId: result.rows[0]?.latest_projection_change_id ?? 0
+    earliestProjectionChangeId:
+      result.rows[0]?.earliest_projection_change_id ?? 0,
+    latestProjectionChangeId: result.rows[0]?.latest_projection_change_id ?? 0,
   };
 }
 
@@ -159,7 +152,8 @@ async function readGapEvents(args: {
     .map((row) => {
       const detailChannels = Array.isArray(row.details?.affectedChannels)
         ? row.details.affectedChannels.filter(
-            (value): value is string => typeof value === "string" && value.length > 0
+            (value): value is string =>
+              typeof value === "string" && value.length > 0
           )
         : defaultAffectedChannels(row.gap_type);
       const affectedChannels = detailChannels.filter((channel) =>
@@ -174,7 +168,7 @@ async function readGapEvents(args: {
           projectionChangeId: args.projectionChangeId,
           detailLevel: args.detailLevel,
           emittedAt: args.emittedAt,
-          effectiveOccurredAt: new Date(row.detected_at).toISOString()
+          effectiveOccurredAt: new Date(row.detected_at).toISOString(),
         }),
         channel: "overview",
         kind: "gap",
@@ -190,12 +184,13 @@ async function readGapEvents(args: {
           affectedChannels,
           detectedAt: new Date(row.detected_at).toISOString(),
           message:
-            typeof row.details?.message === "string" && row.details.message.length > 0
+            typeof row.details?.message === "string" &&
+            row.details.message.length > 0
               ? row.details.message
               : `Reconciliation gap detected: ${row.gap_type}.`,
           correlationId: row.correlation_id,
-          strategyId: row.strategy_id ?? undefined
-        }
+          strategyId: row.strategy_id ?? undefined,
+        },
       });
     })
     .filter((value): value is NonNullable<typeof value> => value !== null);
@@ -214,29 +209,35 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
         apiErrorSchema.parse({
           error: {
             code: "unauthorized",
-            message: "Authentication required."
-          }
+            message: "Authentication required.",
+          },
         })
       );
     }
 
     const parsedRequest = liveSubscriptionRequestSchema.parse({
-      channels: normalizeArrayQuery((request.query as Record<string, unknown>).channels) ?? [
-        "overview"
-      ],
-      strategy: normalizeArrayQuery((request.query as Record<string, unknown>).strategy),
-      compare: normalizeArrayQuery((request.query as Record<string, unknown>).compare),
+      channels: normalizeArrayQuery(
+        (request.query as Record<string, unknown>).channels
+      ) ?? ["overview"],
+      strategy: normalizeArrayQuery(
+        (request.query as Record<string, unknown>).strategy
+      ),
+      compare: normalizeArrayQuery(
+        (request.query as Record<string, unknown>).compare
+      ),
       timezone:
-        (request.query as Record<string, unknown>).timezone === "local" ? "local" : "utc",
+        (request.query as Record<string, unknown>).timezone === "local"
+          ? "local"
+          : "utc",
       detailLevel:
         (request.query as Record<string, unknown>).detailLevel === "debug"
           ? "debug"
-          : "standard"
+          : "standard",
     });
     const { effectiveCapability } = requireSessionContext(request).session;
     const authorization = liveSubscriptionService.authorize({
       effectiveCapability,
-      request: parsedRequest
+      request: parsedRequest,
     });
 
     if (!authorization.allowed) {
@@ -248,45 +249,62 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
         reason: authorization.reason ?? "Stream denied.",
         details: {
           channels: parsedRequest.channels,
-          detailLevel: parsedRequest.detailLevel
-        }
+          detailLevel: parsedRequest.detailLevel,
+        },
       });
 
       return reply.code(403).send(
         apiErrorSchema.parse({
           error: {
             code: "forbidden",
-            message: authorization.reason ?? "Live subscription denied."
-          }
+            message: authorization.reason ?? "Live subscription denied.",
+          },
         })
       );
     }
     const session = requireSessionContext(request).session;
-    const snapshotMode = request.headers["x-kqd-test-stream-mode"] === "snapshot";
+    const testStreamMode = request.headers["x-kqd-test-stream-mode"];
+    const snapshotMode = testStreamMode === "snapshot";
+    const snapshotCurrentMode = testStreamMode === "snapshot-current";
     const requestedStrategyIds = normalizeRequestedStrategies({
       strategy: parsedRequest.strategy,
-      compare: parsedRequest.compare
+      compare: parsedRequest.compare,
     });
     const streamStrategyScope =
       requestedStrategyIds && requestedStrategyIds.length > 0
         ? requestedStrategyIds
         : session.effectiveCapability.strategyScope;
-    const lastEventId = Number(request.headers["last-event-id"] ?? "0");
-    const afterProjectionChangeId = Number.isFinite(lastEventId) ? lastEventId : 0;
-    const projectionWindow = await readProjectionWindow(authorization.filteredChannels);
+    const rawLastEventId = request.headers["last-event-id"];
+    const hasLastEventId =
+      typeof rawLastEventId === "string" && rawLastEventId.trim().length > 0;
+    const lastEventId = Number(hasLastEventId ? rawLastEventId : "0");
+    const requestedAfterProjectionChangeId = Number.isFinite(lastEventId)
+      ? lastEventId
+      : 0;
+    const hasReplayCursor =
+      hasLastEventId && requestedAfterProjectionChangeId > 0;
+    const projectionWindow = await readProjectionWindow(
+      authorization.filteredChannels
+    );
+    const afterProjectionChangeId =
+      hasReplayCursor || snapshotMode
+        ? requestedAfterProjectionChangeId
+        : projectionWindow.latestProjectionChangeId;
 
     if (
-      afterProjectionChangeId > 0 &&
+      requestedAfterProjectionChangeId > 0 &&
       projectionWindow.earliestProjectionChangeId > 0 &&
-      afterProjectionChangeId < projectionWindow.earliestProjectionChangeId - 1
+      requestedAfterProjectionChangeId <
+        projectionWindow.earliestProjectionChangeId - 1
     ) {
       const emittedAt = new Date().toISOString();
       const event = streamResyncRequiredEventSchema.parse({
         ...baseStreamEnvelope({
           projectionChangeId:
-            projectionWindow.latestProjectionChangeId || projectionWindow.earliestProjectionChangeId,
+            projectionWindow.latestProjectionChangeId ||
+            projectionWindow.earliestProjectionChangeId,
           detailLevel: authorization.detailLevel,
-          emittedAt
+          emittedAt,
         }),
         channel: "overview",
         kind: "resync_required",
@@ -294,8 +312,37 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
           reason: "Last-Event-ID is older than the retained stream window.",
           affectedChannels: authorization.filteredChannels,
           refetch: true,
-          cursorStart: projectionWindow.earliestProjectionChangeId
-        }
+          cursorStart: projectionWindow.earliestProjectionChangeId,
+        },
+      });
+
+      reply.header("cache-control", "no-cache");
+      reply.header("connection", "keep-alive");
+      reply.type("text/event-stream; charset=utf-8");
+      return `retry: 250\n\nevent: stream.resync_required\nid: ${event.projectionChangeId}\ndata: ${JSON.stringify(event)}\n\n`;
+    }
+
+    if (
+      hasReplayCursor &&
+      projectionWindow.latestProjectionChangeId -
+        requestedAfterProjectionChangeId >
+        MAX_STREAM_BACKFILL_CHANGES
+    ) {
+      const emittedAt = new Date().toISOString();
+      const event = streamResyncRequiredEventSchema.parse({
+        ...baseStreamEnvelope({
+          projectionChangeId: projectionWindow.latestProjectionChangeId,
+          detailLevel: authorization.detailLevel,
+          emittedAt,
+        }),
+        channel: "overview",
+        kind: "resync_required",
+        payload: {
+          reason: "Last-Event-ID is too far behind the current stream head.",
+          affectedChannels: authorization.filteredChannels,
+          refetch: true,
+          cursorStart: projectionWindow.latestProjectionChangeId,
+        },
       });
 
       reply.header("cache-control", "no-cache");
@@ -306,7 +353,8 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
 
     async function buildEventBlocks(cursor: number) {
       const emittedAt = new Date().toISOString();
-      const latestProjectionChangeId = await overviewService.getLatestProjectionChangeId();
+      const latestProjectionChangeId =
+        await overviewService.getLatestProjectionChangeId();
       const eventBlocks: string[] = [];
 
       const gapEvents = await readGapEvents({
@@ -314,7 +362,7 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
         filteredChannels: authorization.filteredChannels,
         detailLevel: authorization.detailLevel,
         emittedAt,
-        projectionChangeId: latestProjectionChangeId
+        projectionChangeId: latestProjectionChangeId,
       });
       for (const gapEvent of gapEvents) {
         eventBlocks.push(
@@ -324,7 +372,7 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
 
       if (authorization.filteredChannels.includes("overview")) {
         const overview = await overviewService.getOverview({
-          strategyScope: streamStrategyScope
+          strategyScope: streamStrategyScope,
         });
         const snapshotEnvelope = overviewSnapshotEventSchema.parse({
           projectionChangeId: latestProjectionChangeId,
@@ -333,7 +381,7 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
           detailLevel: authorization.detailLevel,
           emittedAt,
           effectiveOccurredAt: overview.healthSummary.freshnessTimestamp,
-          payload: overview
+          payload: overview,
         });
         eventBlocks.push(
           `event: overview.snapshot\nid: ${latestProjectionChangeId}\ndata: ${JSON.stringify(snapshotEnvelope)}\n\n`
@@ -347,11 +395,13 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
           emittedAt,
           effectiveOccurredAt: overview.healthSummary.freshnessTimestamp,
           payload: {
-            connectionState: overview.healthSummary.degraded ? "degraded" : "connected",
+            connectionState: overview.healthSummary.degraded
+              ? "degraded"
+              : "connected",
             freshnessTimestamp: overview.healthSummary.freshnessTimestamp,
             degraded: overview.healthSummary.degraded,
-            reconciliationPending: false
-          }
+            reconciliationPending: false,
+          },
         });
         eventBlocks.push(
           `event: stream.status\nid: ${latestProjectionChangeId}\ndata: ${JSON.stringify(statusEnvelope)}\n\n`
@@ -361,7 +411,7 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
       if (authorization.filteredChannels.includes("decisions")) {
         const decisionChanges = await projectDecisionStreamChanges({
           afterProjectionChangeId: cursor,
-          strategyScope: streamStrategyScope
+          strategyScope: streamStrategyScope,
         });
 
         for (const change of decisionChanges) {
@@ -377,13 +427,15 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
               row: change.row,
               debug:
                 authorization.detailLevel === "debug"
-                  ? await decisionService.getDetail({
-                      correlationId: change.row.correlationId,
-                      effectiveCapability: session.effectiveCapability,
-                      detailLevel: "debug"
-                    }).then((detail) => detail?.debugMetadata)
-                  : undefined
-            }
+                  ? await decisionService
+                      .getDetail({
+                        correlationId: change.row.correlationId,
+                        effectiveCapability: session.effectiveCapability,
+                        detailLevel: "debug",
+                      })
+                      .then((detail) => detail?.debugMetadata)
+                  : undefined,
+            },
           });
 
           eventBlocks.push(
@@ -395,7 +447,7 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
       if (authorization.filteredChannels.includes("trades")) {
         const tradeChanges = await projectTradeStreamChanges({
           afterProjectionChangeId: cursor,
-          strategyScope: streamStrategyScope
+          strategyScope: streamStrategyScope,
         });
 
         for (const change of tradeChanges) {
@@ -411,13 +463,15 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
               row: change.row,
               debug:
                 authorization.detailLevel === "debug"
-                  ? await tradeService.getDetail({
-                      correlationId: change.row.correlationId,
-                      effectiveCapability: session.effectiveCapability,
-                      detailLevel: "debug"
-                    }).then((detail) => detail?.debugMetadata)
-                  : undefined
-            }
+                  ? await tradeService
+                      .getDetail({
+                        correlationId: change.row.correlationId,
+                        effectiveCapability: session.effectiveCapability,
+                        detailLevel: "debug",
+                      })
+                      .then((detail) => detail?.debugMetadata)
+                  : undefined,
+            },
           });
 
           eventBlocks.push(
@@ -429,7 +483,7 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
       if (authorization.filteredChannels.includes("skips")) {
         const skipChanges = await projectSkipStreamChanges({
           afterProjectionChangeId: cursor,
-          strategyScope: streamStrategyScope
+          strategyScope: streamStrategyScope,
         });
 
         for (const change of skipChanges) {
@@ -438,14 +492,14 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
               projectionChangeId: change.projectionChangeId,
               detailLevel: authorization.detailLevel,
               emittedAt,
-              effectiveOccurredAt: change.effectiveOccurredAt
+              effectiveOccurredAt: change.effectiveOccurredAt,
             }),
             channel: "skips",
             kind: "upsert",
             payload: {
               correlationId: change.row.correlationId,
-              row: change.row
-            }
+              row: change.row,
+            },
           });
 
           eventBlocks.push(
@@ -457,7 +511,7 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
       if (authorization.filteredChannels.includes("pnl")) {
         const pnlChanges = await projectPnlStreamChanges({
           afterProjectionChangeId: cursor,
-          strategyScope: streamStrategyScope
+          strategyScope: streamStrategyScope,
         });
 
         for (const change of pnlChanges) {
@@ -472,8 +526,8 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
               scopeType: change.scopeType,
               scopeKey: change.scopeKey,
               bucketType: change.bucketType,
-              summary: change.summary
-            }
+              summary: change.summary,
+            },
           });
 
           eventBlocks.push(
@@ -484,7 +538,7 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
 
       if (authorization.filteredChannels.includes("operations")) {
         const queueChanges = await projectQueueMetricStreamChanges({
-          afterProjectionChangeId: cursor
+          afterProjectionChangeId: cursor,
         });
 
         for (const change of queueChanges) {
@@ -497,8 +551,8 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
             effectiveOccurredAt: change.effectiveOccurredAt,
             payload: {
               queueName: change.queueName,
-              row: change.row
-            }
+              row: change.row,
+            },
           });
 
           eventBlocks.push(
@@ -511,7 +565,7 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
         const alertChanges = await projectAlertStreamChanges({
           afterProjectionChangeId: cursor,
           strategyScope: streamStrategyScope,
-          ...(requestedStrategyIds ? { requestedStrategyIds } : {})
+          ...(requestedStrategyIds ? { requestedStrategyIds } : {}),
         });
 
         for (const change of alertChanges) {
@@ -527,13 +581,15 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
               row: change.row,
               debug:
                 authorization.detailLevel === "debug"
-                  ? await alertService.getDetail({
-                      alertId: change.alertId,
-                      effectiveCapability: session.effectiveCapability,
-                      detailLevel: "debug"
-                    }).then((detail) => detail?.summary.metadata)
-                  : undefined
-            }
+                  ? await alertService
+                      .getDetail({
+                        alertId: change.alertId,
+                        effectiveCapability: session.effectiveCapability,
+                        detailLevel: "debug",
+                      })
+                      .then((detail) => detail?.summary.metadata)
+                  : undefined,
+            },
           });
 
           eventBlocks.push(
@@ -544,13 +600,13 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
 
       return {
         latestProjectionChangeId,
-        eventBlocks
+        eventBlocks,
       };
     }
 
     const initialEmission = await buildEventBlocks(afterProjectionChangeId);
 
-    if (snapshotMode) {
+    if (snapshotMode || snapshotCurrentMode) {
       reply.header("cache-control", "no-cache");
       reply.header("connection", "keep-alive");
       reply.type("text/event-stream; charset=utf-8");
@@ -561,7 +617,7 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
     reply.raw.writeHead(200, {
       "cache-control": "no-cache",
       connection: "keep-alive",
-      "content-type": "text/event-stream; charset=utf-8"
+      "content-type": "text/event-stream; charset=utf-8",
     });
     reply.raw.write(`retry: 250\n\n${initialEmission.eventBlocks.join("")}`);
 
@@ -595,7 +651,8 @@ export async function registerSsePlugin(app: FastifyInstance): Promise<void> {
       pollInFlight = true;
       void (async () => {
         try {
-          const latestProjectionChangeId = await overviewService.getLatestProjectionChangeId();
+          const latestProjectionChangeId =
+            await overviewService.getLatestProjectionChangeId();
           if (latestProjectionChangeId <= currentProjectionChangeId) {
             return;
           }

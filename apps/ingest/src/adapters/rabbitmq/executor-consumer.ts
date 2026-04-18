@@ -1,7 +1,12 @@
+import type { Options } from "amqplib";
+
 import { sourceProfiles, type SourceObservationInput } from "@kalshi-quant-dashboard/source-adapters";
 
 import { SourceIngestService } from "../../services/source-ingest-service.js";
-import { RabbitMqSourceConsumer } from "../../runtime/rabbitmq-source-consumer.js";
+import {
+  RabbitMqSourceConsumer,
+  type RabbitMqSourceConsumerOptions
+} from "../../runtime/rabbitmq-source-consumer.js";
 
 export interface ExecutorDeliveryMetadata {
   readonly exchange?: string;
@@ -17,6 +22,7 @@ export interface ExecutorConsumerOptions {
   readonly name: string;
   readonly url: string;
   readonly queue: string;
+  readonly queueOptions?: Options.AssertQueue;
   readonly sourceRepo: string;
   readonly ingestService?: SourceIngestService;
 }
@@ -32,14 +38,20 @@ export class ExecutorConsumer {
     this.name = options?.name ?? "executor-results-consumer";
 
     if (options) {
-      this.runtimeConsumer = new RabbitMqSourceConsumer({
+      const consumerOptions: RabbitMqSourceConsumerOptions = {
         name: options.name,
         url: options.url,
         queue: options.queue,
         sourceProfile: sourceProfiles.standaloneExecutorV1,
         sourceRepo: options.sourceRepo,
         sourceIngestService: this.ingestService
-      });
+      };
+
+      if (options.queueOptions) {
+        Object.assign(consumerOptions, { queueOptions: options.queueOptions });
+      }
+
+      this.runtimeConsumer = new RabbitMqSourceConsumer(consumerOptions);
     }
   }
 
